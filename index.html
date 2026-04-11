@@ -1643,6 +1643,8 @@
         <button class="btn" type="button" id="confirm-cancel">Cancel</button>
         <button class="btn warn" type="button" id="confirm-ok">Confirm</button>
       </div>
+    </div>
+  </div>
 
   <!-- Savings Override Modal -->
   <div id="saving-modal" class="modal-overlay" hidden>
@@ -1665,8 +1667,6 @@
           <button class="btn primary" type="button" id="saving-modal-save">Save</button>
         </div>
       </div>
-    </div>
-  </div>
     </div>
   </div>
 
@@ -4801,16 +4801,16 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         </div>`;
       }).join('');
 
-      // Bind +/- buttons with prompt for amount
+      // Bind +/- buttons: click=500, shift+click=1000
       list.querySelectorAll('.sav-modal-row').forEach(row=>{
         const valInput=row.querySelector('.sav-m-val');
-        row.querySelector('.sav-m-minus').addEventListener('click',()=>{
-          const amt=Number(prompt('ลดเท่าไร?','500'))||0;
-          valInput.value=Number(valInput.value||0)-amt;
+        row.querySelector('.sav-m-minus').addEventListener('click',(ev)=>{
+          const step=ev.shiftKey?1000:500;
+          valInput.value=Number(valInput.value||0)-step;
         });
-        row.querySelector('.sav-m-plus').addEventListener('click',()=>{
-          const amt=Number(prompt('เพิ่มเท่าไร?','500'))||0;
-          valInput.value=Number(valInput.value||0)+amt;
+        row.querySelector('.sav-m-plus').addEventListener('click',(ev)=>{
+          const step=ev.shiftKey?1000:500;
+          valInput.value=Number(valInput.value||0)+step;
         });
         row.querySelector('.sav-m-del').addEventListener('click',()=>row.remove());
       });
@@ -4857,15 +4857,15 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       row.className='sav-modal-row';
       row.style='display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee';
       row.innerHTML=`<div style="flex:1;min-width:0"><input type="text" class="sav-m-name" value="" placeholder="ชื่อกอง" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:#fafafa"></div><div style="display:flex;align-items:center;gap:4px"><button class="sav-m-minus" style="width:36px;height:36px;border:none;border-radius:8px;background:#ff6b6b;color:#fff;font-size:18px;cursor:pointer;font-weight:700;display:grid;place-items:center">−</button><input type="number" class="sav-m-val" value="0" style="width:100px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:right;font-weight:600"><button class="sav-m-plus" style="width:36px;height:36px;border:none;border-radius:8px;background:#43a047;color:#fff;font-size:18px;cursor:pointer;font-weight:700;display:grid;place-items:center">+</button></div><button class="sav-m-del" style="width:36px;height:36px;border:none;border-radius:8px;background:#eee;color:#999;font-size:16px;cursor:pointer;display:grid;place-items:center">🗑</button>`;
-      row.querySelector('.sav-m-minus').addEventListener('click',()=>{
+      row.querySelector('.sav-m-minus').addEventListener('click',(ev)=>{
         const v=row.querySelector('.sav-m-val');
-        const amt=Number(prompt('ลดเท่าไร?','500'))||0;
-        v.value=Number(v.value||0)-amt;
+        const step=ev.shiftKey?1000:500;
+        v.value=Number(v.value||0)-step;
       });
-      row.querySelector('.sav-m-plus').addEventListener('click',()=>{
+      row.querySelector('.sav-m-plus').addEventListener('click',(ev)=>{
         const v=row.querySelector('.sav-m-val');
-        const amt=Number(prompt('เพิ่มเท่าไร?','500'))||0;
-        v.value=Number(v.value||0)+amt;
+        const step=ev.shiftKey?1000:500;
+        v.value=Number(v.value||0)+step;
       });
       row.querySelector('.sav-m-del').addEventListener('click',()=>row.remove());
       list.appendChild(row);
