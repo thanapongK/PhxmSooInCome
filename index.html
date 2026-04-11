@@ -4754,7 +4754,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         return `<div class="tool-card"><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">ออมรายเดือน: ${entry.name}</label><input class="tool-input" type="text" value="${fmt(entry.value)}" readonly></div><div class="tool-input-wrap"><label class="tool-label">ปรับเพิ่ม/ลด (ต่อเดือน)</label><input class="tool-input" id="sav-adj-${token}" data-sav-token="${token}" type="number" value="${adjust}" oninput="updateSavingToolLive()"></div></div><div class="tool-total">ออมใหม่/เดือน: <strong id="sav-total-${token}">${fmt(newMonthly)}</strong> ฿</div></div>`;
       }).join('');
       const totalMonthly=rows.reduce((sum,entry)=>sum+entry.value+numOrDefault(toolState.saving.adjustments[entry.name],0),0);
-      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">หน้าเงินออมสะสม</div><div class="tool-sub">เดือน ${monthName} เป็นต้น • บันทึกแล้วจะเปลี่ยนยอดออมรายเดือนตั้งแต่เดือนนี้ไป</div></div><div class="tool-grid-2">${cards||'<div class="tool-card">ยังไม่มีรายการออม</div>'}</div><div class="tool-total" style="margin-top:12px;">ออมรวม/เดือนหลังปรับ: <strong id="sav-grand">${fmt(totalMonthly)}</strong> ฿</div><div class="tool-actions" style="gap:8px;"><button class="btn" type="button" onclick="resetSavingTool()">Reset</button><button class="btn primary" type="button" onclick="saveSavingToolState()">Save Savings</button></div></div>`;
+      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">หน้าเงินออมสะสม</div><div class="tool-sub">เดือน ${monthName} เป็นต้น • บันทึกแล้วจะเปลี่ยนยอดออมรายเดือนตั้งแต่เดือนถัดไป (เดือนนี้ไม่เปลี่ยน)</div></div><div class="tool-grid-2">${cards||'<div class="tool-card">ยังไม่มีรายการออม</div>'}</div><div class="tool-total" style="margin-top:12px;">ออมรวม/เดือนหลังปรับ: <strong id="sav-grand">${fmt(totalMonthly)}</strong> ฿</div><div class="tool-actions" style="gap:8px;"><button class="btn" type="button" onclick="resetSavingTool()">Reset</button><button class="btn primary" type="button" onclick="saveSavingToolState()">Save Savings</button></div></div>`;
     }
 
     function updateSavingToolLive(){
@@ -4789,7 +4789,8 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         changed=true;
         const newMonthly=Math.max(0,entry.value+adjust);
         const entryBucketKey=getSavingBucketKey(entry.name);
-        for(let i=targetIdx;i<months.length;i++){
+        // Only apply to FUTURE months (skip the current displayed month)
+        for(let i=targetIdx+1;i<months.length;i++){
           let matched=false;
           months[i].saving=(months[i].saving||[]).map((item)=>{
             if(getSavingBucketKey(item.n)===entryBucketKey){
@@ -4923,8 +4924,12 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     }
 
     async function initApp(){
-      await loadMonthsFromSheet();
-      loadMonthsFromLocal();
+      let sheetLoaded=false;
+      try{
+        await loadMonthsFromSheet();
+        sheetLoaded=months[0]&&months[0].id;
+      }catch(e){console.warn('Sheet load failed',e);}
+      if(!sheetLoaded) loadMonthsFromLocal();
       ensureAllMonthRids();
       const ridHarmonized=harmonizeRecurringRids();
       const migrated=migrateLegacyDebtPlans();
