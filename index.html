@@ -4741,96 +4741,39 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     }
 
     function renderSavingToolSection(){
-      const activeId=document.querySelector('.month-section.active')?.id?.replace('sec-','');
-      const realMonth=months.find((m)=>m.id===activeId);
-      savingToolMonthId=realMonth?activeId:(months[0]?.id||'may');
-      const activeMonth=months.find((m)=>m.id===savingToolMonthId)||months[0];
-      const monthName=activeMonth?(activeMonth.label+' '+activeMonth.year):'(?)';
-      const rows=getSavingToolRows();
-      const cards=rows.map((entry)=>{
-        const token=encodeURIComponent(entry.name);
-        const adjust=numOrDefault(toolState.saving.adjustments[entry.name],0);
-        const newMonthly=entry.value+adjust;
-        return `<div class="tool-card"><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">ออมรายเดือน: ${entry.name}</label><input class="tool-input" type="text" value="${fmt(entry.value)}" readonly></div><div class="tool-input-wrap"><label class="tool-label">ปรับเพิ่ม/ลด (ต่อเดือน)</label><input class="tool-input" id="sav-adj-${token}" data-sav-token="${token}" type="number" value="${adjust}" oninput="updateSavingToolLive()"></div></div><div class="tool-total">ออมใหม่/เดือน: <strong id="sav-total-${token}">${fmt(newMonthly)}</strong> ฿</div></div>`;
-      }).join('');
-      const totalMonthly=rows.reduce((sum,entry)=>sum+entry.value+numOrDefault(toolState.saving.adjustments[entry.name],0),0);
-      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">หน้าเงินออมสะสม</div><div class="tool-sub">เดือน ${monthName} เป็นต้น • บันทึกแล้วจะเปลี่ยนยอดออมรายเดือนตั้งแต่เดือนถัดไป (เดือนนี้ไม่เปลี่ยน)</div></div><div class="tool-grid-2">${cards||'<div class="tool-card">ยังไม่มีรายการออม</div>'}</div><div class="tool-total" style="margin-top:12px;">ออมรวม/เดือนหลังปรับ: <strong id="sav-grand">${fmt(totalMonthly)}</strong> ฿</div><div class="tool-actions" style="gap:8px;"><button class="btn" type="button" onclick="resetSavingTool()">Reset</button><button class="btn primary" type="button" onclick="saveSavingToolState()">Save Savings</button></div></div>`;
-    }
+      // Read-only accumulated savings dashboard
+      const lastMonth=months[months.length-1];
+      const lastAcc=lastMonth?.accMap||{};
+      const accEntries=getOrderedAccEntries(lastAcc);
+      const accTotal=accEntries.reduce((sum,e)=>sum+e.value,0);
 
-    function updateSavingToolLive(){
-      const rows=getSavingToolRows();
-      let totalMonthly=0;
-      const next={};
-      rows.forEach((entry)=>{
-        const token=encodeURIComponent(entry.name);
-        const adjust=numOrDefault(document.getElementById(`sav-adj-${token}`)?.value,0);
-        next[entry.name]=adjust;
-        const newMonthly=entry.value+adjust;
-        totalMonthly+=newMonthly;
-        const el=document.getElementById(`sav-total-${token}`);
-        if(el) el.textContent=fmt(newMonthly);
+      // Build per-month table rows
+      const monthBtnLabel={may:'พ.ค.',jun:'มิ.ย.',jul:'ก.ค.',aug:'ส.ค.',sep:'ก.ย.',oct:'ต.ค.',nov:'พ.ย.',dec:'ธ.ค.',jan:'ม.ค.',feb:'ก.พ.',mar:'มี.ค.',apr:'เม.ย.'};
+      const bucketNames=accEntries.map(e=>e.name);
+
+      let tableHead=`<th style="text-align:left;padding:8px 6px;font-size:12px;color:#666;border-bottom:2px solid #e5e5e5">เดือน</th>`;
+      bucketNames.forEach(n=>{tableHead+=`<th style="text-align:right;padding:8px 6px;font-size:12px;color:#666;border-bottom:2px solid #e5e5e5">${n}</th>`;});
+      tableHead+=`<th style="text-align:right;padding:8px 6px;font-size:12px;color:#0F6E56;font-weight:600;border-bottom:2px solid #e5e5e5">รวม</th>`;
+
+      let tableRows='';
+      months.forEach((m)=>{
+        const mAcc=m.accMap||{};
+        const mTotal=bucketNames.reduce((s,n)=>s+(Number(mAcc[n])||0),0);
+        let cells=`<td style="padding:6px;font-size:13px;font-weight:500">${monthBtnLabel[m.id]||m.label} ${m.year}</td>`;
+        bucketNames.forEach(n=>{
+          const val=Number(mAcc[n])||0;
+          cells+=`<td style="text-align:right;padding:6px;font-size:13px;color:${val<0?'#dc2626':'#333'}">${fmt(val)}</td>`;
+        });
+        cells+=`<td style="text-align:right;padding:6px;font-size:13px;font-weight:600;color:#0F6E56">${fmt(mTotal)}</td>`;
+        tableRows+=`<tr style="border-bottom:1px solid #f0f0f0">${cells}</tr>`;
       });
-      toolState.saving.adjustments=next;
-      const totalEl=document.getElementById('sav-grand');
-      if(totalEl) totalEl.textContent=fmt(totalMonthly);
-    }
 
-    async function saveSavingToolState(){
-      updateSavingToolLive();
-      
-      const activeIdx=months.findIndex((m)=>m.id===savingToolMonthId);
-      const targetIdx=Math.max(0,activeIdx);
-      
-      const rows=getSavingToolRows();
-      let changed=false;
-      rows.forEach((entry)=>{
-        const adjust=numOrDefault(toolState.saving.adjustments[entry.name],0);
-        if(adjust===0) return;
-        changed=true;
-        const newMonthly=Math.max(0,entry.value+adjust);
-        const entryBucketKey=getSavingBucketKey(entry.name);
-        // Only apply to FUTURE months (skip the current displayed month)
-        for(let i=targetIdx+1;i<months.length;i++){
-          let matched=false;
-          months[i].saving=(months[i].saving||[]).map((item)=>{
-            if(getSavingBucketKey(item.n)===entryBucketKey){
-              matched=true;
-              return {...item,n:entry.name,v:newMonthly};
-            }
-            return item;
-          });
-          if(!matched && newMonthly>0){
-            months[i].saving.push({n:entry.name,v:newMonthly});
-          }
-        }
-      });
-      
-      // reset adjustments after baking in
-      toolState.saving.adjustments={};
-      saveToolState();
-      
-      if(changed){
-        recalcAll();
-        saveMonthsToLocal();
-      }
-      
-      const activeSection=document.querySelector('.month-section.active')?.id||'sec-saving-tool';
-      renderApp(activeSection);
-      
-      try{
-        if(changed) await syncMonthsToSheet();
-      }catch(error){
-        console.warn('syncMonthsToSheet failed', error);
-        showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ', 'error', 3200, 'Sync มีปัญหา');
-      }
-      showToast('บันทึกยอดออมรายเดือนเรียบร้อย', 'success', 2000, 'บันทึกสำเร็จ');
-    }
+      // Summary cards at top
+      const summaryCards=accEntries.map(e=>
+        `<div class="tool-card" style="text-align:center;padding:16px"><div style="font-size:12px;color:#666;margin-bottom:4px">${e.name}</div><div style="font-size:20px;font-weight:600;color:${e.value<0?'#dc2626':'#0F6E56'}">${fmt(e.value)} ฿</div></div>`
+      ).join('');
 
-    function resetSavingTool(){
-      toolState.saving.adjustments={};
-      saveToolState();
-      renderApp('sec-saving-tool');
-      showToast('รีเซ็ตค่าปรับเงินออมแล้ว', 'info', 1800, 'รีเซ็ตสำเร็จ');
+      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสมทั้งปี</div><div class="tool-sub">ดูยอดสะสมแต่ละกอง • แก้ไขได้ที่การ์ด "เงินออม" ของแต่ละเดือน</div></div><div class="tool-grid-2">${summaryCards}</div><div style="background:#fff;border-radius:8px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:12px"><span style="font-size:14px;font-weight:500;color:#0F6E56">รวมเงินออมสะสมทั้งหมด</span><span style="font-size:18px;font-weight:600;color:#0F6E56">${fmt(accTotal)} ฿</span></div><div style="margin-top:16px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;background:#fff;border-radius:8px;overflow:hidden"><thead><tr style="background:#f9fafb">${tableHead}</tr></thead><tbody>${tableRows}</tbody></table></div></div>`;
     }
 
     globalThis.updateTaxToolLive=updateTaxToolLive;
@@ -4838,9 +4781,9 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     globalThis.runQuickTaxCalc=runQuickTaxCalc;
     globalThis.updateSalaryToolLive=updateSalaryToolLive;
     globalThis.saveSalaryToolState=saveSalaryToolState;
-    globalThis.updateSavingToolLive=updateSavingToolLive;
-    globalThis.saveSavingToolState=saveSavingToolState;
-    globalThis.resetSavingTool=resetSavingTool;
+    globalThis.updateSavingToolLive=function(){};
+    globalThis.saveSavingToolState=function(){};
+    globalThis.resetSavingTool=function(){};
 
     let savingToolMonthId=months[0]?.id||'may';
 
