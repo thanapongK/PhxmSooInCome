@@ -2176,7 +2176,9 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     async function loadMonthsFromSheet(){
       if(IS_TEST_MODE) return;
       try{
-        const response=await fetch(SHEET_GVIZ_URL,{cache:'no-store'});
+        // Cache-bust: Google gviz caches aggressively, add timestamp
+        const cacheBust=`&_t=${Date.now()}`;
+        const response=await fetch(SHEET_GVIZ_URL+cacheBust,{cache:'no-store'});
         if(!response.ok) return;
         const text=await response.text();
         const jsonStart=text.indexOf('{');
@@ -2211,11 +2213,17 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         key:'months_json',
         months
       };
-      await fetch(SHEET_SYNC_URL,{
-        method:'POST',
-        mode:'no-cors',
-        body:JSON.stringify(payload)
-      });
+      try{
+        await fetch(SHEET_SYNC_URL,{
+          method:'POST',
+          mode:'no-cors',
+          body:JSON.stringify(payload)
+        });
+        console.log('syncMonthsToSheet: POST sent');
+      }catch(err){
+        console.warn('syncMonthsToSheet fetch failed', err);
+        throw err;
+      }
     }
 
     function saveMonthsToLocal(){
