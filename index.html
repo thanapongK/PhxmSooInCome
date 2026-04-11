@@ -1225,9 +1225,109 @@
       .summary-bar { grid-template-columns: repeat(3, 1fr); }
     }
 
+    /* ── LOGIN GATE ── */
+    #login-gate {
+      position: fixed; inset: 0; z-index: 99999;
+      background: linear-gradient(135deg, #064e3b 0%, #065f46 25%, #047857 50%, #059669 75%, #34d399 100%);
+      display: grid; place-items: center;
+      font-family: 'Inter', 'Sarabun', sans-serif;
+    }
+    #login-gate.hidden { display: none; }
+    .login-box {
+      background: rgba(255,255,255,.12);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 20px;
+      padding: 40px 32px;
+      width: min(90vw, 360px);
+      text-align: center;
+      color: #fff;
+    }
+    .login-box h2 { font-size: 22px; margin-bottom: 6px; }
+    .login-box p { font-size: 13px; opacity: .7; margin-bottom: 24px; }
+    .login-box input {
+      width: 100%; padding: 12px 16px;
+      border: 1px solid rgba(255,255,255,.25);
+      border-radius: 10px;
+      background: rgba(255,255,255,.1);
+      color: #fff; font-size: 16px;
+      outline: none; text-align: center;
+      letter-spacing: 1px;
+    }
+    .login-box input::placeholder { color: rgba(255,255,255,.4); }
+    .login-box input:focus { border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.15); }
+    .login-box button {
+      margin-top: 16px; width: 100%; padding: 12px;
+      border: none; border-radius: 10px;
+      background: #fff; color: #064e3b;
+      font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: opacity .2s;
+    }
+    .login-box button:hover { opacity: .9; }
+    .login-error { color: #fca5a5; font-size: 12px; margin-top: 10px; min-height: 18px; }
   </style>
 </head>
 <body>
+  <!-- LOGIN GATE -->
+  <div id="login-gate">
+    <div class="login-box">
+      <h2>🔒 ธนพงษ์ ♡ สุพิชา</h2>
+      <p>กรุณาใส่รหัสผ่านเพื่อเข้าใช้งาน</p>
+      <input type="password" id="login-pass" placeholder="รหัสผ่าน" autocomplete="off">
+      <button id="login-btn">เข้าสู่ระบบ</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+  </div>
+  <script>
+  (function(){
+    const AUTH_KEY='couple_budget_auth';
+    const SHEET_ID='1Nnoo7K6HcE_jafrU9e7YKYI_qdHmqnrpfdRaETPIb1A';
+    const CONFIG_URL=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Config&range=A1`;
+    let sheetPass=null;
+
+    async function fetchPass(){
+      try{
+        const res=await fetch(CONFIG_URL);
+        const text=await res.text();
+        const json=JSON.parse(text.substring(text.indexOf('{'),text.lastIndexOf('}')+1));
+        sheetPass=String(json.table.rows[0].c[0].v||'');
+      }catch(e){ console.warn('fetchPass failed',e); }
+    }
+
+    function checkPass(input){
+      if(!sheetPass) return false;
+      return input===sheetPass;
+    }
+
+    if(localStorage.getItem(AUTH_KEY)==='granted'){
+      document.getElementById('login-gate').classList.add('hidden');
+    }else{
+      fetchPass();
+      const btn=document.getElementById('login-btn');
+      const inp=document.getElementById('login-pass');
+      const err=document.getElementById('login-error');
+      function tryLogin(){
+        if(!sheetPass){
+          err.textContent='กำลังโหลด... ลองอีกครั้ง';
+          fetchPass();
+          return;
+        }
+        if(checkPass(inp.value)){
+          localStorage.setItem(AUTH_KEY,'granted');
+          document.getElementById('login-gate').classList.add('hidden');
+          err.textContent='';
+        }else{
+          err.textContent='รหัสผ่านไม่ถูกต้อง';
+          inp.value='';
+          inp.focus();
+        }
+      }
+      btn.addEventListener('click',tryLogin);
+      inp.addEventListener('keydown',function(e){ if(e.key==='Enter') tryLogin(); });
+    }
+  })();
+  </script>
+
   <section class="hero">
     <div class="hero-inner">
       <div class="avatar">
