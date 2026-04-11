@@ -2176,45 +2176,45 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     async function loadMonthsFromSheet(){
       if(IS_TEST_MODE) return;
       try{
-        const cacheBust=`&_t=${Date.now()}`;
-        const response=await fetch(SHEET_GVIZ_URL+cacheBust,{cache:'no-store'});
+        // Use Apps Script doGet for real-time reads (no gviz cache)
+        const readUrl=SHEET_SYNC_URL+'?action=read&_t='+Date.now();
+        const response=await fetch(readUrl,{cache:'no-store'});
         if(!response.ok) return;
-        const text=await response.text();
-        const jsonStart=text.indexOf('{');
-        const jsonEnd=text.lastIndexOf('}');
-        if(jsonStart<0||jsonEnd<0) return;
-        const payload=JSON.parse(text.slice(jsonStart,jsonEnd+1));
-        const rows=payload?.table?.rows||[];
-        const keyRows=rows.map((r)=>({
-          key:String(r?.c?.[0]?.v||'').trim(),
-          value:String(r?.c?.[1]?.v||'').trim()
-        }));
-        // New format: per-month rows (month_0, month_1, ...)
-        const countRow=keyRows.find((r)=>r.key==='months_count');
-        if(countRow && Number(countRow.value)>0){
-          const count=Number(countRow.value);
-          const parsed=[];
-          for(let i=0;i<count;i++){
-            const row=keyRows.find((r)=>r.key==='month_'+i);
-            if(row && row.value) parsed.push(JSON.parse(row.value));
-          }
-          if(parsed.length){
-            const normalized=normalizeSheetMonths(parsed);
-            if(normalized&&normalized.length) months.splice(0,months.length,...normalized);
-          }
-          return;
-        }
-        // Fallback: old base64 format
-        const b64Row=keyRows.find((r)=>r.key==='months_json_b64' && r.value);
-        const jsonRow=keyRows.find((r)=>r.key==='months_json' && r.value);
-        const jsonStr=b64Row ? decodeBase64Utf8(b64Row.value) : (jsonRow?.value||'');
-        if(!jsonStr) return;
-        const parsed2=JSON.parse(jsonStr);
-        const normalized2=normalizeSheetMonths(parsed2);
-        if(!normalized2||!normalized2.length) return;
-        months.splice(0,months.length,...normalized2);
+        const data=await response.json();
+        if(!data.ok||!data.months||!data.months.length) return;
+        const normalized=normalizeSheetMonths(data.months);
+        if(!normalized||!normalized.length) return;
+        months.splice(0,months.length,...normalized);
       }catch(error){
-        console.warn('loadMonthsFromSheet failed', error);
+        console.warn('loadMonthsFromSheet failed, trying gviz fallback', error);
+        try{
+          const cacheBust=`&_t=${Date.now()}`;
+          const response=await fetch(SHEET_GVIZ_URL+cacheBust,{cache:'no-store'});
+          if(!response.ok) return;
+          const text=await response.text();
+          const jsonStart=text.indexOf('{');
+          const jsonEnd=text.lastIndexOf('}');
+          if(jsonStart<0||jsonEnd<0) return;
+          const payload=JSON.parse(text.slice(jsonStart,jsonEnd+1));
+          const rows=payload?.table?.rows||[];
+          const keyRows=rows.map((r)=>({
+            key:String(r?.c?.[0]?.v||'').trim(),
+            value:String(r?.c?.[1]?.v||'').trim()
+          }));
+          const countRow=keyRows.find((r)=>r.key==='months_count');
+          if(countRow && Number(countRow.value)>0){
+            const count=Number(countRow.value);
+            const parsed=[];
+            for(let i=0;i<count;i++){
+              const row=keyRows.find((r)=>r.key==='month_'+i);
+              if(row && row.value) parsed.push(JSON.parse(row.value));
+            }
+            if(parsed.length){
+              const normalized=normalizeSheetMonths(parsed);
+              if(normalized&&normalized.length) months.splice(0,months.length,...normalized);
+            }
+          }
+        }catch(e2){ console.warn('gviz fallback also failed',e2); }
       }
     }
 
