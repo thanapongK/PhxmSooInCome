@@ -54,6 +54,7 @@
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html { overflow-x: hidden; }
     body {
       font-family: 'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: var(--bg);
@@ -61,6 +62,7 @@
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
     }
 
     /* ── HERO ── */
@@ -221,6 +223,7 @@
       width: min(1320px, calc(100vw - 48px));
       margin: 0 auto;
       padding: 2rem 1rem 4rem;
+      overflow-x: hidden;
     }
 
     /* ── NAVIGATION ── */
@@ -1211,7 +1214,15 @@
       .edit-row { grid-template-columns: 1fr; }
       .edit-row.plan-row { grid-template-columns: 1fr; }
       .plan-card-amount { font-size: 18px; }
-      .modal { padding: 18px; border-radius: var(--r-lg); }
+      .modal { padding: 16px; border-radius: var(--r-lg); max-width: calc(100vw - 24px) !important; }
+      .modal-overlay { padding: 12px; align-items: flex-start; padding-top: 24px; }
+      .acc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px; }
+      .acc-item { padding: 10px 12px; }
+      .acc-val { font-size: 16px; }
+      .acc-card { padding: 14px; margin-bottom: 12px; overflow-x: auto; }
+      #saving-modal-body input[type="number"],
+      #saving-modal-body input[type="text"] { font-size: 16px !important; }
+      #saving-modal-body select { font-size: 14px !important; width: 100% !important; min-width: 0 !important; }
       .toast-stack { top: auto; bottom: 16px; left: 12px; right: 12px; width: auto; }
       .hero-stats { gap: 8px; }
       .tool-grid-2 { grid-template-columns: 1fr; }
@@ -4816,9 +4827,9 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
 
         ${otherFunds.length?`<div style="background:#e3f2fd;border-radius:12px;padding:14px;margin-bottom:16px">
           <div style="font-size:13px;font-weight:600;color:#1565c0;margin-bottom:8px">🔄 Transfer</div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <select id="sfm-transfer-target" style="flex:1;min-width:120px;padding:8px;border:1px solid #90caf9;border-radius:8px;font-size:14px">${transferOpts}</select>
-            <input type="number" id="sfm-transfer-amt" value="" placeholder="Amount" style="width:90px;padding:8px;border:1px solid #90caf9;border-radius:8px;font-size:15px;text-align:right">
+          <select id="sfm-transfer-target" style="width:100%;padding:8px;border:1px solid #90caf9;border-radius:8px;font-size:14px;margin-bottom:6px">${transferOpts}</select>
+          <div style="display:flex;gap:6px">
+            <input type="number" id="sfm-transfer-amt" value="" placeholder="Amount" style="flex:1;padding:8px;border:1px solid #90caf9;border-radius:8px;font-size:15px;text-align:right">
             <button id="sfm-transfer-btn" style="background:#1e88e5;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap">Transfer →</button>
           </div>
         </div>`:''}
