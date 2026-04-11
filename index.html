@@ -2996,6 +2996,11 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         m.coveredFromOther=calcCoveredFromOtherFunds(m);
         const monthSaving=getSavingBreakdownMap(m.saving);
         running=mergeAccMap(running, monthSaving);
+        if(m.savingOverride){
+          Object.entries(m.savingOverride).forEach(([name,value])=>{
+            running[name]=Number(value)||0;
+          });
+        }
         m.accMap={...running};
         m.acc={
           wedding:Number(running['เก็บแต่งงาน']||0),
@@ -4735,6 +4740,10 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const heroItems=currentEntries.map(e=>`<div class="acc-item"><div class="acc-name">${e.name}</div><div class="acc-val">${fmt(e.value)}</div></div>`).join('');
       const heroCard=`<div class="acc-card"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px">เงินออมสะสม ณ สิ้นเดือน${currentMonth.label} ${currentMonth.year}</div><div class="acc-grid">${heroItems}<div class="acc-item highlight"><div class="acc-name blue">รวมทั้งหมด</div><div class="acc-val blue">${fmt(currentTotal)}</div></div></div></div>`;
 
+      // Editor section
+      const editorRows=currentEntries.map((e,i)=>`<div class="saving-edit-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="sav-edit-name" data-idx="${i}" value="${e.name}" style="flex:1;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px" placeholder="ชื่อกอง"><input type="number" class="sav-edit-val" data-idx="${i}" value="${e.value}" style="width:110px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;text-align:right" placeholder="0"><button class="sav-edit-del" data-idx="${i}" style="background:#ff6b6b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">ลบ</button></div>`).join('');
+      const editor=`<div class="acc-card" id="saving-editor-card" style="margin-top:12px;border:2px dashed #4ecdc4;background:#f0fffe"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span>แก้ไขยอดสะสมจริง ณ ${currentMonth.label} ${currentMonth.year}</span></div><div id="saving-editor-rows">${editorRows}</div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button id="sav-add-fund" style="background:#4ecdc4;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px">+ เพิ่มกอง</button><button id="sav-save" style="background:#e94560;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600">บันทึก</button><button id="sav-clear-override" style="background:#888;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px">ล้าง override (ใช้ค่าคำนวณ)</button></div></div>`;
+
       // Timeline: each future month as smaller acc-card
       let timeline='';
       visibleMonths.forEach((m,i)=>{
@@ -4746,7 +4755,56 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         timeline+=`<div class="acc-card" style="margin-bottom:10px"><div class="card-title saving" style="border:none;padding:0;margin-bottom:8px;font-size:13px">สิ้นเดือน${m.label} ${m.year}</div><div class="acc-grid">${items}<div class="acc-item highlight"><div class="acc-name blue">รวม</div><div class="acc-val blue" style="font-size:16px">${fmt(mTotal)}</div></div></div></div>`;
       });
 
-      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสม</div><div class="tool-sub">ดูยอดสะสมแต่ละกอง • แก้ไขได้ที่การ์ด "เงินออม" ของแต่ละเดือน</div></div>${heroCard}${timeline?'<div style="margin-top:8px">'+timeline+'</div>':''}</div>`;
+      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสม</div><div class="tool-sub">แก้ไขยอดสะสมจริง แล้วกดบันทึก • เดือนถัดไปจะคำนวณต่อจากยอดนี้</div></div>${heroCard}${editor}${timeline?'<div style="margin-top:8px">'+timeline+'</div>':''}</div>`;
+    }
+
+    function bindSavingEditorEvents(){
+      const card=document.getElementById('saving-editor-card');
+      if(!card) return;
+      card.querySelector('#sav-add-fund')?.addEventListener('click',()=>{
+        const container=document.getElementById('saving-editor-rows');
+        const idx=container.querySelectorAll('.saving-edit-row').length;
+        const row=document.createElement('div');
+        row.className='saving-edit-row';
+        row.style='display:flex;gap:8px;align-items:center;margin-bottom:6px';
+        row.innerHTML=`<input type="text" class="sav-edit-name" data-idx="${idx}" value="" style="flex:1;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px" placeholder="ชื่อกอง"><input type="number" class="sav-edit-val" data-idx="${idx}" value="0" style="width:110px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;text-align:right" placeholder="0"><button class="sav-edit-del" data-idx="${idx}" style="background:#ff6b6b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">ลบ</button>`;
+        container.appendChild(row);
+        row.querySelector('.sav-edit-del').addEventListener('click',()=>row.remove());
+        row.querySelector('.sav-edit-name').focus();
+      });
+      card.querySelectorAll('.sav-edit-del').forEach(btn=>{
+        btn.addEventListener('click',()=>btn.closest('.saving-edit-row').remove());
+      });
+      card.querySelector('#sav-save')?.addEventListener('click',async()=>{
+        const startIdx=getCurrentMonthIndex();
+        const override={};
+        document.querySelectorAll('#saving-editor-rows .saving-edit-row').forEach(row=>{
+          const name=row.querySelector('.sav-edit-name')?.value?.trim();
+          const val=Number(row.querySelector('.sav-edit-val')?.value)||0;
+          if(name) override[name]=val;
+        });
+        months[startIdx].savingOverride=override;
+        recalcAll();
+        saveMonthsToLocal();
+        renderApp('sec-saving-tool');
+        showToast('อัพเดทยอดสะสมเรียบร้อย','success',2200,'บันทึกสำเร็จ');
+        try{await syncMonthsToSheet();}catch(e){
+          console.warn('syncMonthsToSheet failed',e);
+          showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ','error',3400,'Sync มีปัญหา');
+        }
+      });
+      card.querySelector('#sav-clear-override')?.addEventListener('click',async()=>{
+        const startIdx=getCurrentMonthIndex();
+        delete months[startIdx].savingOverride;
+        recalcAll();
+        saveMonthsToLocal();
+        renderApp('sec-saving-tool');
+        showToast('ล้าง override แล้ว ใช้ค่าคำนวณปกติ','success',2200,'บันทึกสำเร็จ');
+        try{await syncMonthsToSheet();}catch(e){
+          console.warn('syncMonthsToSheet failed',e);
+          showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ','error',3400,'Sync มีปัญหา');
+        }
+      });
     }
 
     globalThis.updateTaxToolLive=updateTaxToolLive;
@@ -4834,6 +4892,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       savingDiv.id='sec-saving-tool';
       savingDiv.innerHTML=renderSavingToolSection();
       sections.appendChild(savingDiv);
+      bindSavingEditorEvents();
 
       activateSectionById(activeTarget||'sec-may');
       clearZeroNumberInputs();
