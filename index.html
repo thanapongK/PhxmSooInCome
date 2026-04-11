@@ -2229,21 +2229,14 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         months
       };
       try{
-        await new Promise((resolve,reject)=>{
-          const xhr=new XMLHttpRequest();
-          xhr.open('POST',SHEET_SYNC_URL);
-          xhr.timeout=120000;
-          xhr.onload=function(){
-            console.log('syncMonthsToSheet:',xhr.status,xhr.responseText.substring(0,200));
-            resolve();
-          };
-          xhr.onerror=function(){ reject(new Error('XHR error')); };
-          xhr.ontimeout=function(){ reject(new Error('XHR timeout')); };
-          xhr.send(JSON.stringify(payload));
+        await fetch(SHEET_SYNC_URL,{
+          method:'POST',
+          mode:'no-cors',
+          body:JSON.stringify(payload)
         });
+        console.log('syncMonthsToSheet: POST sent (no-cors)');
       }catch(err){
         console.warn('syncMonthsToSheet failed', err);
-        throw err;
       }
     }
 
