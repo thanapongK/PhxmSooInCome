@@ -1643,6 +1643,30 @@
         <button class="btn" type="button" id="confirm-cancel">Cancel</button>
         <button class="btn warn" type="button" id="confirm-ok">Confirm</button>
       </div>
+
+  <!-- Savings Override Modal -->
+  <div id="saving-modal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="saving-modal-title">แก้ไขยอดสะสม</div>
+          <div class="modal-sub" id="saving-modal-sub">แก้ไขยอดสะสมจริงของแต่ละกอง แล้วกดบันทึก</div>
+        </div>
+        <button class="modal-close" type="button" id="saving-modal-close" aria-label="Close">×</button>
+      </div>
+      <div id="saving-modal-list" class="modal-list"></div>
+      <div class="modal-actions">
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn soft" type="button" id="saving-modal-add">+ เพิ่มกอง</button>
+          <button class="btn soft" type="button" id="saving-modal-clear" style="color:#888">ล้าง override</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn" type="button" id="saving-modal-cancel">Cancel</button>
+          <button class="btn primary" type="button" id="saving-modal-save">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -4731,23 +4755,17 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     function renderSavingToolSection(){
       const startIdx=getCurrentMonthIndex();
       const visibleMonths=months.slice(startIdx);
-
-      // Current month hero card (acc-card style)
       const currentMonth=months[startIdx];
       const currentAcc=currentMonth?.accMap||{};
       const currentEntries=getOrderedAccEntries(currentAcc);
       const currentTotal=currentEntries.reduce((s,e)=>s+e.value,0);
       const heroItems=currentEntries.map(e=>`<div class="acc-item"><div class="acc-name">${e.name}</div><div class="acc-val">${fmt(e.value)}</div></div>`).join('');
-      const heroCard=`<div class="acc-card"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px">เงินออมสะสม ณ สิ้นเดือน${currentMonth.label} ${currentMonth.year}</div><div class="acc-grid">${heroItems}<div class="acc-item highlight"><div class="acc-name blue">รวมทั้งหมด</div><div class="acc-val blue">${fmt(currentTotal)}</div></div></div></div>`;
+      const overrideTag=currentMonth.savingOverride?`<span style="display:inline-block;background:#4ecdc4;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;margin-left:8px;vertical-align:middle">override</span>`:'';
+      const heroCard=`<div class="acc-card"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span>เงินออมสะสม ณ สิ้นเดือน${currentMonth.label} ${currentMonth.year}${overrideTag}</span><button type="button" id="sav-open-modal" style="background:#4ecdc4;color:#fff;border:none;border-radius:8px;padding:8px 18px;cursor:pointer;font-size:14px;font-weight:600">✏️ แก้ไข</button></div><div class="acc-grid">${heroItems}<div class="acc-item highlight"><div class="acc-name blue">รวมทั้งหมด</div><div class="acc-val blue">${fmt(currentTotal)}</div></div></div></div>`;
 
-      // Editor section
-      const editorRows=currentEntries.map((e,i)=>`<div class="saving-edit-row" style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="text" class="sav-edit-name" data-idx="${i}" value="${e.name}" style="flex:1;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px" placeholder="ชื่อกอง"><input type="number" class="sav-edit-val" data-idx="${i}" value="${e.value}" style="width:110px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;text-align:right" placeholder="0"><button class="sav-edit-del" data-idx="${i}" style="background:#ff6b6b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">ลบ</button></div>`).join('');
-      const editor=`<div class="acc-card" id="saving-editor-card" style="margin-top:12px;border:2px dashed #4ecdc4;background:#f0fffe"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span>แก้ไขยอดสะสมจริง ณ ${currentMonth.label} ${currentMonth.year}</span></div><div id="saving-editor-rows">${editorRows}</div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button id="sav-add-fund" style="background:#4ecdc4;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px">+ เพิ่มกอง</button><button id="sav-save" style="background:#e94560;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:14px;font-weight:600">บันทึก</button><button id="sav-clear-override" style="background:#888;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:13px">ล้าง override (ใช้ค่าคำนวณ)</button></div></div>`;
-
-      // Timeline: each future month as smaller acc-card
       let timeline='';
       visibleMonths.forEach((m,i)=>{
-        if(i===0) return; // skip hero month
+        if(i===0) return;
         const mAcc=m.accMap||{};
         const entries=getOrderedAccEntries(mAcc);
         const mTotal=entries.reduce((s,e)=>s+e.value,0);
@@ -4755,56 +4773,117 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         timeline+=`<div class="acc-card" style="margin-bottom:10px"><div class="card-title saving" style="border:none;padding:0;margin-bottom:8px;font-size:13px">สิ้นเดือน${m.label} ${m.year}</div><div class="acc-grid">${items}<div class="acc-item highlight"><div class="acc-name blue">รวม</div><div class="acc-val blue" style="font-size:16px">${fmt(mTotal)}</div></div></div></div>`;
       });
 
-      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสม</div><div class="tool-sub">แก้ไขยอดสะสมจริง แล้วกดบันทึก • เดือนถัดไปจะคำนวณต่อจากยอดนี้</div></div>${heroCard}${editor}${timeline?'<div style="margin-top:8px">'+timeline+'</div>':''}</div>`;
+      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสม</div><div class="tool-sub">กดปุ่ม "แก้ไข" เพื่อปรับยอดสะสมจริง • เดือนถัดไปจะคำนวณต่อจากยอดนี้</div></div>${heroCard}${timeline?'<div style="margin-top:8px">'+timeline+'</div>':''}</div>`;
     }
 
-    function bindSavingEditorEvents(){
-      const card=document.getElementById('saving-editor-card');
-      if(!card) return;
-      card.querySelector('#sav-add-fund')?.addEventListener('click',()=>{
-        const container=document.getElementById('saving-editor-rows');
-        const idx=container.querySelectorAll('.saving-edit-row').length;
-        const row=document.createElement('div');
-        row.className='saving-edit-row';
-        row.style='display:flex;gap:8px;align-items:center;margin-bottom:6px';
-        row.innerHTML=`<input type="text" class="sav-edit-name" data-idx="${idx}" value="" style="flex:1;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px" placeholder="ชื่อกอง"><input type="number" class="sav-edit-val" data-idx="${idx}" value="0" style="width:110px;padding:6px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;text-align:right" placeholder="0"><button class="sav-edit-del" data-idx="${idx}" style="background:#ff6b6b;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;font-size:13px">ลบ</button>`;
-        container.appendChild(row);
-        row.querySelector('.sav-edit-del').addEventListener('click',()=>row.remove());
-        row.querySelector('.sav-edit-name').focus();
-      });
-      card.querySelectorAll('.sav-edit-del').forEach(btn=>{
-        btn.addEventListener('click',()=>btn.closest('.saving-edit-row').remove());
-      });
-      card.querySelector('#sav-save')?.addEventListener('click',async()=>{
-        const startIdx=getCurrentMonthIndex();
-        const override={};
-        document.querySelectorAll('#saving-editor-rows .saving-edit-row').forEach(row=>{
-          const name=row.querySelector('.sav-edit-name')?.value?.trim();
-          const val=Number(row.querySelector('.sav-edit-val')?.value)||0;
-          if(name) override[name]=val;
+    function openSavingModal(){
+      const startIdx=getCurrentMonthIndex();
+      const currentMonth=months[startIdx];
+      const currentAcc=currentMonth?.accMap||{};
+      const entries=getOrderedAccEntries(currentAcc);
+      const modal=document.getElementById('saving-modal');
+      const list=document.getElementById('saving-modal-list');
+      document.getElementById('saving-modal-title').textContent=`แก้ไขยอดสะสม — ${currentMonth.label} ${currentMonth.year}`;
+      document.getElementById('saving-modal-sub').textContent='แก้จำนวนเงินโดยตรง หรือกด +/- เพื่อเพิ่มลด แล้วกด Save';
+
+      list.innerHTML=entries.map((e,i)=>{
+        const val=e.value;
+        return `<div class="sav-modal-row" data-name="${e.name}" style="display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee">
+          <div style="flex:1;min-width:0">
+            <input type="text" class="sav-m-name" value="${e.name}" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:#fafafa">
+          </div>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="sav-m-minus" style="width:36px;height:36px;border:none;border-radius:8px;background:#ff6b6b;color:#fff;font-size:18px;cursor:pointer;font-weight:700;display:grid;place-items:center">−</button>
+            <input type="number" class="sav-m-val" value="${val}" style="width:100px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:right;font-weight:600">
+            <button class="sav-m-plus" style="width:36px;height:36px;border:none;border-radius:8px;background:#43a047;color:#fff;font-size:18px;cursor:pointer;font-weight:700;display:grid;place-items:center">+</button>
+          </div>
+          <button class="sav-m-del" style="width:36px;height:36px;border:none;border-radius:8px;background:#eee;color:#999;font-size:16px;cursor:pointer;display:grid;place-items:center">🗑</button>
+        </div>`;
+      }).join('');
+
+      // Bind +/- buttons with prompt for amount
+      list.querySelectorAll('.sav-modal-row').forEach(row=>{
+        const valInput=row.querySelector('.sav-m-val');
+        row.querySelector('.sav-m-minus').addEventListener('click',()=>{
+          const amt=Number(prompt('ลดเท่าไร?','500'))||0;
+          valInput.value=Number(valInput.value||0)-amt;
         });
+        row.querySelector('.sav-m-plus').addEventListener('click',()=>{
+          const amt=Number(prompt('เพิ่มเท่าไร?','500'))||0;
+          valInput.value=Number(valInput.value||0)+amt;
+        });
+        row.querySelector('.sav-m-del').addEventListener('click',()=>row.remove());
+      });
+
+      modal.hidden=false;
+    }
+
+    function closeSavingModal(){
+      document.getElementById('saving-modal').hidden=true;
+    }
+
+    async function saveSavingModal(){
+      const startIdx=getCurrentMonthIndex();
+      const rows=document.querySelectorAll('#saving-modal-list .sav-modal-row');
+      const override={};
+      rows.forEach(row=>{
+        const name=row.querySelector('.sav-m-name')?.value?.trim();
+        const val=Number(row.querySelector('.sav-m-val')?.value)||0;
+        if(name) override[name]=val;
+      });
+      if(Object.keys(override).length>0){
         months[startIdx].savingOverride=override;
-        recalcAll();
-        saveMonthsToLocal();
-        renderApp('sec-saving-tool');
-        showToast('อัพเดทยอดสะสมเรียบร้อย','success',2200,'บันทึกสำเร็จ');
-        try{await syncMonthsToSheet();}catch(e){
-          console.warn('syncMonthsToSheet failed',e);
-          showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ','error',3400,'Sync มีปัญหา');
-        }
-      });
-      card.querySelector('#sav-clear-override')?.addEventListener('click',async()=>{
-        const startIdx=getCurrentMonthIndex();
+      }else{
         delete months[startIdx].savingOverride;
-        recalcAll();
-        saveMonthsToLocal();
-        renderApp('sec-saving-tool');
-        showToast('ล้าง override แล้ว ใช้ค่าคำนวณปกติ','success',2200,'บันทึกสำเร็จ');
-        try{await syncMonthsToSheet();}catch(e){
-          console.warn('syncMonthsToSheet failed',e);
-          showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ','error',3400,'Sync มีปัญหา');
-        }
+      }
+      recalcAll();
+      saveMonthsToLocal();
+      closeSavingModal();
+      renderApp('sec-saving-tool');
+      showToast('อัพเดทยอดสะสมเรียบร้อย','success',2200,'บันทึกสำเร็จ');
+      try{await syncMonthsToSheet();}catch(e){
+        console.warn('syncMonthsToSheet failed',e);
+        showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ','error',3400,'Sync มีปัญหา');
+      }
+    }
+
+    document.getElementById('saving-modal-close').addEventListener('click',closeSavingModal);
+    document.getElementById('saving-modal-cancel').addEventListener('click',closeSavingModal);
+    document.getElementById('saving-modal-save').addEventListener('click',saveSavingModal);
+    document.getElementById('saving-modal').addEventListener('click',(ev)=>{if(ev.target.id==='saving-modal')closeSavingModal();});
+    document.getElementById('saving-modal-add').addEventListener('click',()=>{
+      const list=document.getElementById('saving-modal-list');
+      const row=document.createElement('div');
+      row.className='sav-modal-row';
+      row.style='display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #eee';
+      row.innerHTML=`<div style="flex:1;min-width:0"><input type="text" class="sav-m-name" value="" placeholder="ชื่อกอง" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:8px;font-size:15px;background:#fafafa"></div><div style="display:flex;align-items:center;gap:4px"><button class="sav-m-minus" style="width:36px;height:36px;border:none;border-radius:8px;background:#ff6b6b;color:#fff;font-size:18px;cursor:pointer;font-weight:700;display:grid;place-items:center">−</button><input type="number" class="sav-m-val" value="0" style="width:100px;padding:8px 10px;border:1px solid #ddd;border-radius:8px;font-size:16px;text-align:right;font-weight:600"><button class="sav-m-plus" style="width:36px;height:36px;border:none;border-radius:8px;background:#43a047;color:#fff;font-size:18px;cursor:pointer;font-weight:700;display:grid;place-items:center">+</button></div><button class="sav-m-del" style="width:36px;height:36px;border:none;border-radius:8px;background:#eee;color:#999;font-size:16px;cursor:pointer;display:grid;place-items:center">🗑</button>`;
+      row.querySelector('.sav-m-minus').addEventListener('click',()=>{
+        const v=row.querySelector('.sav-m-val');
+        const amt=Number(prompt('ลดเท่าไร?','500'))||0;
+        v.value=Number(v.value||0)-amt;
       });
+      row.querySelector('.sav-m-plus').addEventListener('click',()=>{
+        const v=row.querySelector('.sav-m-val');
+        const amt=Number(prompt('เพิ่มเท่าไร?','500'))||0;
+        v.value=Number(v.value||0)+amt;
+      });
+      row.querySelector('.sav-m-del').addEventListener('click',()=>row.remove());
+      list.appendChild(row);
+      row.querySelector('.sav-m-name').focus();
+    });
+    document.getElementById('saving-modal-clear').addEventListener('click',async()=>{
+      const startIdx=getCurrentMonthIndex();
+      delete months[startIdx].savingOverride;
+      recalcAll();
+      saveMonthsToLocal();
+      closeSavingModal();
+      renderApp('sec-saving-tool');
+      showToast('ล้าง override แล้ว ใช้ค่าคำนวณปกติ','success',2200,'บันทึกสำเร็จ');
+      try{await syncMonthsToSheet();}catch(e){console.warn('sync failed',e);}
+    });
+
+    function bindSavingEditorEvents(){
+      document.getElementById('sav-open-modal')?.addEventListener('click',openSavingModal);
     }
 
     globalThis.updateTaxToolLive=updateTaxToolLive;
