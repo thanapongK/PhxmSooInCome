@@ -2175,47 +2175,15 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
 
     async function loadMonthsFromSheet(){
       if(IS_TEST_MODE) return;
-      try{
-        // Use Apps Script doGet for real-time reads (no gviz cache)
-        const readUrl=SHEET_SYNC_URL+'?action=read&_t='+Date.now();
-        const response=await fetch(readUrl,{cache:'no-store'});
-        if(!response.ok) return;
-        const data=await response.json();
-        if(!data.ok||!data.months||!data.months.length) return;
-        const normalized=normalizeSheetMonths(data.months);
-        if(!normalized||!normalized.length) return;
-        months.splice(0,months.length,...normalized);
-      }catch(error){
-        console.warn('loadMonthsFromSheet failed, trying gviz fallback', error);
-        try{
-          const cacheBust=`&_t=${Date.now()}`;
-          const response=await fetch(SHEET_GVIZ_URL+cacheBust,{cache:'no-store'});
-          if(!response.ok) return;
-          const text=await response.text();
-          const jsonStart=text.indexOf('{');
-          const jsonEnd=text.lastIndexOf('}');
-          if(jsonStart<0||jsonEnd<0) return;
-          const payload=JSON.parse(text.slice(jsonStart,jsonEnd+1));
-          const rows=payload?.table?.rows||[];
-          const keyRows=rows.map((r)=>({
-            key:String(r?.c?.[0]?.v||'').trim(),
-            value:String(r?.c?.[1]?.v||'').trim()
-          }));
-          const countRow=keyRows.find((r)=>r.key==='months_count');
-          if(countRow && Number(countRow.value)>0){
-            const count=Number(countRow.value);
-            const parsed=[];
-            for(let i=0;i<count;i++){
-              const row=keyRows.find((r)=>r.key==='month_'+i);
-              if(row && row.value) parsed.push(JSON.parse(row.value));
-            }
-            if(parsed.length){
-              const normalized=normalizeSheetMonths(parsed);
-              if(normalized&&normalized.length) months.splice(0,months.length,...normalized);
-            }
-          }
-        }catch(e2){ console.warn('gviz fallback also failed',e2); }
-      }
+      const readUrl=SHEET_SYNC_URL+'?action=read&_t='+Date.now();
+      const response=await fetch(readUrl,{cache:'no-store'});
+      if(!response.ok) throw new Error('Sheet API returned '+response.status);
+      const data=await response.json();
+      if(!data.ok) throw new Error(data.error||'Sheet API error');
+      if(!data.months||!data.months.length) throw new Error('No months data in Sheet');
+      const normalized=normalizeSheetMonths(data.months);
+      if(!normalized||!normalized.length) throw new Error('Failed to normalize Sheet data');
+      months.splice(0,months.length,...normalized);
     }
 
     async function syncMonthsToSheet(){
@@ -2240,13 +2208,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       }
     }
 
-    function saveMonthsToLocal(){
-      try{
-        localStorage.setItem(LOCAL_MONTHS_KEY, JSON.stringify(months));
-      }catch(error){
-        console.warn('saveMonthsToLocal failed', error);
-      }
-    }
+    function saveMonthsToLocal(){}
 
     function cleanupClosedDebtItems(){
       let changed=false;
@@ -2936,18 +2898,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
 
     globalThis.closeDebtPlan=closeDebtPlan;
 
-    function loadMonthsFromLocal(){
-      try{
-        const raw=localStorage.getItem(LOCAL_MONTHS_KEY);
-        if(!raw) return;
-        const parsed=JSON.parse(raw);
-        const normalized=normalizeSheetMonths(parsed);
-        if(!normalized||!normalized.length) return;
-        months.splice(0,months.length,...normalized);
-      }catch(error){
-        console.warn('loadMonthsFromLocal failed', error);
-      }
-    }
+    function loadMonthsFromLocal(){}
 
     const toolNav=document.getElementById('tool-nav');
     const nav=document.getElementById('nav');
@@ -4889,20 +4840,12 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     }
 
     async function initApp(){
-      let sheetLoaded=false;
-      try{
-        await loadMonthsFromSheet();
-        sheetLoaded=months[0]&&months[0].id;
-      }catch(e){console.warn('Sheet load failed',e);}
-      if(!sheetLoaded) loadMonthsFromLocal();
+      await loadMonthsFromSheet();
       ensureAllMonthRids();
-      const ridHarmonized=harmonizeRecurringRids();
-      const migrated=migrateLegacyDebtPlans();
-      const cleaned=cleanupClosedDebtItems();
-      const debtRecalced=recalcDebtPlanBreakdowns();
-      if(cleaned||migrated||ridHarmonized||debtRecalced){
-        saveMonthsToLocal();
-      }
+      harmonizeRecurringRids();
+      migrateLegacyDebtPlans();
+      cleanupClosedDebtItems();
+      recalcDebtPlanBreakdowns();
       loadToolState();
       recalcAll();
       renderApp('sec-may');
@@ -4911,9 +4854,8 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     try{
       await initApp();
     }catch(error){
-      console.warn('initApp failed', error);
-      recalcAll();
-      renderApp('sec-may');
+      console.error('initApp failed', error);
+      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#1a1a2e;color:#ff6b6b;font-family:sans-serif;text-align:center;padding:2rem"><div><h1>500</h1><p>ไม่สามารถโหลดข้อมูลจาก Sheet ได้</p><p style="color:#888;font-size:0.9rem">'+String(error.message||error)+'</p><button onclick="location.reload()" style="margin-top:1rem;padding:0.5rem 1.5rem;background:#e94560;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:1rem">ลองใหม่</button></div></div>';
     }
   </script>
 </body>
