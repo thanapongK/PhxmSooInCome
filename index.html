@@ -4902,7 +4902,6 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const debtRecalced=recalcDebtPlanBreakdowns();
       if(cleaned||migrated||ridHarmonized||debtRecalced){
         saveMonthsToLocal();
-        try{await syncMonthsToSheet();}catch(error){console.warn('syncMonthsToSheet failed', error);showToast('โหลดระบบแล้ว แต่ซิงก์ชีตไม่สำเร็จ', 'error', 3200, 'Sync มีปัญหา');}
       }
       loadToolState();
       recalcAll();
