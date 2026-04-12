@@ -1913,6 +1913,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       {id:'mar',label:'มี.ค.',year:'2570',income:[{n:'เงินเดือน ธนพงษ์',v:29680},{n:'เงินเดือน สุพิชา',v:23744},{n:'โบนัส',v:0},{n:'อื่นๆ',v:1000}],incomeTotal:54424,expense:[{n:'ค่าเช่าบ้าน',v:5500},{n:'ค่าน้ำ',v:200},{n:'ค่าไฟ',v:2500},{n:'เน็ต',v:1926},{n:'ค่าครองชีพ ธนพงษ์',v:6000},{n:'ค่าครองชีพ สุพิชา',v:5000},{n:'น้ำมันรวม',v:4000},{n:'แมว',v:1325},{n:'Netflix',v:279},{n:'เตะบอล',v:480},{n:'กยศ',v:1000}],expenseTotal:28210,debt:[{n:'ผ่อนรถ',v:2000}],debtTotal:2000,saving:[{n:'เก็บแต่งงาน',v:3000},{n:'สุพิชา',v:2000},{n:'ประกันสังคม',v:1750},{n:'กองทุน',v:1187}],savingTotal:7937,surplus:16277,acc:{wedding:44000,supitcha:22000,sso:19250,fund:12521},remarks:['หนี้ตกแต่งบ้านและโซฟา/ที่นอนหมดแล้ว'],special:false,tax:true},
       {id:'apr',label:'เม.ย.',year:'2570',income:[{n:'เงินเดือน ธนพงษ์',v:29680},{n:'เงินเดือน สุพิชา',v:23744},{n:'โบนัส',v:0},{n:'อื่นๆ',v:1000}],incomeTotal:54424,expense:[{n:'ค่าเช่าบ้าน',v:5500},{n:'ค่าน้ำ',v:200},{n:'ค่าไฟ',v:2500},{n:'เน็ต',v:1926},{n:'ค่าครองชีพ ธนพงษ์',v:6000},{n:'ค่าครองชีพ สุพิชา',v:5000},{n:'น้ำมันรวม',v:4000},{n:'แมว',v:1325},{n:'Netflix',v:279},{n:'เตะบอล',v:480},{n:'กยศ',v:1000}],expenseTotal:28210,debt:[{n:'ผ่อนรถ',v:2000}],debtTotal:2000,saving:[{n:'เก็บแต่งงาน',v:3000},{n:'สุพิชา',v:2000},{n:'ประกันสังคม',v:1750},{n:'กองทุน',v:1187}],savingTotal:7937,surplus:16277,acc:{wedding:47000,supitcha:24000,sso:21000,fund:13708},remarks:[],special:false,tax:false}
     ];
+    let savingInitial={};
     const SHEET_ID='1Nnoo7K6HcE_jafrU9e7YKYI_qdHmqnrpfdRaETPIb1A';
     const SHEET_GID='0';
     const SHEET_GVIZ_URL=`https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=%E0%B8%8A%E0%B8%B5%E0%B8%971&headers=0`;
@@ -2210,6 +2211,9 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const normalized=normalizeSheetMonths(data.months);
       if(!normalized||!normalized.length) throw new Error('Failed to normalize Sheet data');
       months.splice(0,months.length,...normalized);
+      if(data.savingInitial && typeof data.savingInitial==='object'){
+        savingInitial={...data.savingInitial};
+      }
     }
 
     async function syncMonthsToSheet(){
@@ -2220,7 +2224,8 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         sheetId:SHEET_ID,
         gid:SHEET_GID,
         key:'months_json',
-        months
+        months,
+        savingInitial
       };
       try{
         await fetch(SHEET_SYNC_URL,{
@@ -3012,6 +3017,10 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     function recalcAll(){
       let running={};
       DEFAULT_SAVING_BUCKETS.forEach((bucket)=>{ running[bucket]=0; });
+      // Apply initial balances (before the system started)
+      Object.entries(savingInitial).forEach(([name,value])=>{
+        running[name]=Number(value)||0;
+      });
       months.forEach((m)=>{
         m.incomeTotal=sumItems(m.income);
         m.expenseTotal=sumItems(m.expense);
@@ -3022,11 +3031,6 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         m.coveredFromOther=calcCoveredFromOtherFunds(m);
         const monthSaving=getSavingBreakdownMap(m.saving);
         running=mergeAccMap(running, monthSaving);
-        if(m.savingOverride){
-          Object.entries(m.savingOverride).forEach(([name,value])=>{
-            running[name]=Number(value)||0;
-          });
-        }
         m.accMap={...running};
         m.acc={
           wedding:Number(running['เก็บแต่งงาน']||0),
@@ -4756,83 +4760,78 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
 
     function renderSavingToolSection(){
       const startIdx=getCurrentMonthIndex();
-      const visibleMonths=months.slice(startIdx);
       const currentMonth=months[startIdx];
       const currentAcc=currentMonth?.accMap||{};
-      const currentEntries=getOrderedAccEntries(currentAcc);
-      const currentTotal=currentEntries.reduce((s,e)=>s+e.value,0);
-      const overrideTag=currentMonth.savingOverride?` <span style="display:inline-block;background:#4ecdc4;color:#fff;font-size:10px;padding:2px 8px;border-radius:10px;vertical-align:middle">OVERRIDE</span>`:'';
 
-      const heroItems=currentEntries.map(e=>`<div class="acc-item sav-fund-click" data-fund="${e.name}" style="cursor:pointer;transition:transform .1s;border:2px solid transparent;border-radius:12px"><div class="acc-name">${e.name}</div><div class="acc-val">${fmt(e.value)}</div></div>`).join('');
+      // Gather all fund names (from savingInitial + DEFAULT + any in accMap)
+      const allFundNames=new Set([...DEFAULT_SAVING_BUCKETS,...Object.keys(savingInitial),...Object.keys(currentAcc)]);
+      const extraNames=[...allFundNames].filter(n=>!DEFAULT_SAVING_BUCKETS.includes(n)).sort((a,b)=>a.localeCompare(b,'th'));
+      const orderedFunds=[...DEFAULT_SAVING_BUCKETS,...extraNames];
+
+      // Initial balances card
+      const initialItems=orderedFunds.filter(n=>(Number(savingInitial[n]||0))!==0||currentAcc[n]!==undefined).map(n=>`<div class="acc-item sav-fund-click" data-fund="${n}" style="cursor:pointer;transition:transform .1s;border:2px solid transparent;border-radius:12px"><div class="acc-name">${n}</div><div class="acc-val">${fmt(Number(savingInitial[n]||0))}</div></div>`).join('');
+      const initialTotal=orderedFunds.reduce((s,n)=>s+(Number(savingInitial[n]||0)),0);
       const addBtn=`<div class="acc-item sav-fund-click" data-fund="__NEW__" style="cursor:pointer;border:2px dashed #4ecdc4;border-radius:12px;opacity:.7"><div class="acc-name" style="color:#4ecdc4;font-weight:600">+ Add Fund</div><div class="acc-val"></div></div>`;
-      const clearBtn=currentMonth.savingOverride?`<div style="text-align:center;margin-top:6px"><button class="sav-clear-all" style="background:none;border:1px solid #ccc;color:#888;border-radius:6px;padding:5px 14px;cursor:pointer;font-size:12px">↩ Revert to calculated</button></div>`:'';
-      const heroCard=`<div class="acc-card"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px">เงินออมสะสม ณ สิ้นเดือน${currentMonth.label} ${currentMonth.year}${overrideTag}</div><div class="acc-grid" style="cursor:default">${heroItems}${addBtn}<div class="acc-item highlight"><div class="acc-name blue">รวมทั้งหมด</div><div class="acc-val blue">${fmt(currentTotal)}</div></div></div>${clearBtn}</div>`;
+      const initialCard=`<div class="acc-card"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px">💰 ยอดเงินเริ่มต้น (ก่อนเข้าระบบ)</div><div class="acc-grid" style="cursor:default">${initialItems}${addBtn}<div class="acc-item highlight"><div class="acc-name blue">รวม</div><div class="acc-val blue">${fmt(initialTotal)}</div></div></div></div>`;
 
+      // Accumulated savings card (up to current month)
+      const accEntries=orderedFunds.filter(n=>Math.abs(Number(currentAcc[n]||0))>0).map(n=>({name:n,value:Number(currentAcc[n]||0)}));
+      const accTotal=accEntries.reduce((s,e)=>s+e.value,0);
+      const accItems=accEntries.map(e=>`<div class="acc-item"><div class="acc-name">${e.name}</div><div class="acc-val">${fmt(e.value)}</div></div>`).join('');
+      const accCard=`<div class="acc-card"><div class="card-title saving" style="border:none;padding:0;margin-bottom:10px">📊 ยอดสะสม ณ สิ้นเดือน${currentMonth.label} ${currentMonth.year}</div><div class="acc-grid">${accItems}<div class="acc-item highlight"><div class="acc-name blue">รวมทั้งหมด</div><div class="acc-val blue">${fmt(accTotal)}</div></div></div></div>`;
+
+      // Timeline for future months
       let timeline='';
-      visibleMonths.forEach((m,i)=>{
-        if(i===0) return;
+      months.slice(startIdx+1).forEach((m)=>{
         const mAcc=m.accMap||{};
-        const entries=getOrderedAccEntries(mAcc);
+        const entries=orderedFunds.filter(n=>Math.abs(Number(mAcc[n]||0))>0).map(n=>({name:n,value:Number(mAcc[n]||0)}));
         const mTotal=entries.reduce((s,e)=>s+e.value,0);
         const items=entries.map(e=>`<div class="acc-item"><div class="acc-name">${e.name}</div><div class="acc-val" style="font-size:16px">${fmt(e.value)}</div></div>`).join('');
         timeline+=`<div class="acc-card" style="margin-bottom:10px"><div class="card-title saving" style="border:none;padding:0;margin-bottom:8px;font-size:13px">สิ้นเดือน${m.label} ${m.year}</div><div class="acc-grid">${items}<div class="acc-item highlight"><div class="acc-name blue">รวม</div><div class="acc-val blue" style="font-size:16px">${fmt(mTotal)}</div></div></div></div>`;
       });
 
-      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสม</div><div class="tool-sub">กดที่กองไหนก็ได้เพื่อฝาก ถอน ย้าย หรือแก้ไขยอดสะสม</div></div>${heroCard}${timeline?'<div style="margin-top:8px">'+timeline+'</div>':''}</div>`;
+      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">เงินออมสะสม</div><div class="tool-sub">กดที่กองเงินเพื่อแก้ไขยอดเริ่มต้นหรือยอดฝากรายเดือน</div></div>${initialCard}${accCard}${timeline?'<div style="margin-top:8px">'+timeline+'</div>':''}</div>`;
     }
 
     /* ─── Per-fund popup modal ─── */
     function openFundModal(fundName){
-      const startIdx=getCurrentMonthIndex();
-      const currentMonth=months[startIdx];
-      const currentAcc=currentMonth?.accMap||{};
-      const currentEntries=getOrderedAccEntries(currentAcc);
       const isNew=fundName==='__NEW__';
-      const currentVal=isNew?0:Number(currentAcc[fundName]||0);
-      const otherFunds=currentEntries.filter(e=>e.name!==fundName);
       const modal=document.getElementById('saving-modal');
       const body=document.getElementById('saving-modal-body');
+      const initialVal=isNew?0:Number(savingInitial[fundName]||0);
 
       document.getElementById('saving-modal-title').textContent=isNew?'New Fund':fundName;
-      document.getElementById('saving-modal-sub').textContent=isNew?'Set name and starting balance':`Current balance: ${fmt(currentVal)} ฿`;
+      document.getElementById('saving-modal-sub').textContent=isNew?'ตั้งชื่อกองและยอดเริ่มต้น':'แก้ไขยอดเริ่มต้น / ยอดรายเดือน';
 
-      const transferOpts=otherFunds.map(f=>`<option value="${f.name}">${f.name} (${fmt(f.value)})</option>`).join('');
+      // Build month options
+      const monthOpts=months.map((m,i)=>{
+        const savItem=(m.saving||[]).find(s=>getSavingBucketKey(s.n)===getSavingBucketKey(fundName));
+        const mVal=savItem?Number(savItem.v||0):0;
+        return `<option value="${i}">${m.label} ${m.year} (${fmt(mVal)} ฿/เดือน)</option>`;
+      }).join('');
+
+      // Current month's saving for this fund
+      const curIdx=getCurrentMonthIndex();
+      const curSavItem=(months[curIdx].saving||[]).find(s=>getSavingBucketKey(s.n)===getSavingBucketKey(fundName));
+      const curMonthVal=curSavItem?Number(curSavItem.v||0):0;
 
       body.innerHTML=`
-        <div style="margin-bottom:16px">
+        ${isNew?`<div style="margin-bottom:16px">
           <label style="font-size:12px;color:#999;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Fund Name</label>
-          <input type="text" id="sfm-name" value="${isNew?'':fundName}" placeholder="ชื่อกองออม" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box">
-        </div>
-        <div style="margin-bottom:20px">
-          <label style="font-size:12px;color:#999;display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px">Balance</label>
-          <input type="number" id="sfm-balance" value="${currentVal}" style="width:100%;padding:14px;border:2px solid #4ecdc4;border-radius:12px;font-size:26px;font-weight:700;text-align:center;box-sizing:border-box;background:#f0fffe">
+          <input type="text" id="sfm-name" value="" placeholder="ชื่อกองออม" style="width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:16px;box-sizing:border-box">
+        </div>`:`<input type="hidden" id="sfm-name" value="${fundName}">`}
+
+        <div style="background:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:16px;margin-bottom:16px">
+          <label style="font-size:12px;color:#16a34a;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:600">💰 ยอดเริ่มต้น (ก่อนเข้าระบบ)</label>
+          <input type="number" id="sfm-initial" value="${initialVal}" style="width:100%;padding:14px;border:2px solid #4ecdc4;border-radius:12px;font-size:24px;font-weight:700;text-align:center;box-sizing:border-box;background:#fff">
         </div>
 
-        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-          <div style="background:#e8f5e9;border-radius:12px;padding:14px">
-            <div style="font-size:13px;font-weight:600;color:#2e7d32;margin-bottom:8px">💰 Deposit</div>
-            <div style="display:flex;gap:6px">
-              <input type="number" id="sfm-deposit" value="" placeholder="Amount" style="flex:1;padding:10px;border:1px solid #a5d6a7;border-radius:8px;font-size:16px;text-align:right">
-              <button id="sfm-deposit-btn" style="background:#43a047;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-weight:700;font-size:15px;white-space:nowrap">+ Deposit</button>
-            </div>
-          </div>
-          <div style="background:#ffebee;border-radius:12px;padding:14px">
-            <div style="font-size:13px;font-weight:600;color:#c62828;margin-bottom:8px">💸 Withdraw</div>
-            <div style="display:flex;gap:6px">
-              <input type="number" id="sfm-withdraw" value="" placeholder="Amount" style="flex:1;padding:10px;border:1px solid #ef9a9a;border-radius:8px;font-size:16px;text-align:right">
-              <button id="sfm-withdraw-btn" style="background:#e53935;color:#fff;border:none;border-radius:8px;padding:10px 18px;cursor:pointer;font-weight:700;font-size:15px;white-space:nowrap">− Withdraw</button>
-            </div>
-          </div>
+        <div style="background:#eff6ff;border:2px solid #93c5fd;border-radius:14px;padding:16px;margin-bottom:16px">
+          <label style="font-size:12px;color:#2563eb;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;font-weight:600">📅 ยอดฝากรายเดือน</label>
+          <select id="sfm-month-select" style="width:100%;padding:10px;border:1px solid #93c5fd;border-radius:10px;font-size:14px;margin-bottom:8px;background:#fff">${monthOpts}</select>
+          <input type="number" id="sfm-monthly" value="${curMonthVal}" style="width:100%;padding:14px;border:2px solid #60a5fa;border-radius:12px;font-size:24px;font-weight:700;text-align:center;box-sizing:border-box;background:#fff">
+          <div style="font-size:11px;color:#6b7280;margin-top:6px;text-align:center">เปลี่ยนเดือนด้านบนเพื่อแก้ยอดฝากเดือนอื่น</div>
         </div>
-
-        ${otherFunds.length?`<div style="background:#e3f2fd;border-radius:12px;padding:14px;margin-bottom:16px">
-          <div style="font-size:13px;font-weight:600;color:#1565c0;margin-bottom:8px">🔄 Transfer</div>
-          <select id="sfm-transfer-target" style="width:100%;padding:8px;border:1px solid #90caf9;border-radius:8px;font-size:14px;margin-bottom:6px">${transferOpts}</select>
-          <div style="display:flex;gap:6px">
-            <input type="number" id="sfm-transfer-amt" value="" placeholder="Amount" style="flex:1;padding:8px;border:1px solid #90caf9;border-radius:8px;font-size:15px;text-align:right">
-            <button id="sfm-transfer-btn" style="background:#1e88e5;color:#fff;border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap">Transfer →</button>
-          </div>
-        </div>`:''}
 
         <div style="display:flex;gap:10px;margin-top:12px">
           <button id="sfm-save" style="flex:1;background:#43a047;color:#fff;border:none;border-radius:10px;padding:14px;cursor:pointer;font-weight:700;font-size:16px">✓ Save</button>
@@ -4840,61 +4839,71 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         </div>
       `;
 
-      // Deposit
-      body.querySelector('#sfm-deposit-btn')?.addEventListener('click',()=>{
-        const amt=Number(body.querySelector('#sfm-deposit')?.value)||0;
-        if(amt<=0) return;
-        const bal=body.querySelector('#sfm-balance');
-        bal.value=Number(bal.value||0)+amt;
-        body.querySelector('#sfm-deposit').value='';
-        showToast(`+${fmt(amt)}`,'success',1000);
+      // Set initial selected month
+      const monthSelect=body.querySelector('#sfm-month-select');
+      const monthlyInput=body.querySelector('#sfm-monthly');
+      if(monthSelect) monthSelect.value=String(curIdx);
+
+      // Month switch handler
+      monthSelect?.addEventListener('change',()=>{
+        const idx=Number(monthSelect.value);
+        const m=months[idx];
+        const savItem=(m.saving||[]).find(s=>getSavingBucketKey(s.n)===getSavingBucketKey(fundName));
+        monthlyInput.value=savItem?Number(savItem.v||0):0;
       });
-      // Withdraw
-      body.querySelector('#sfm-withdraw-btn')?.addEventListener('click',()=>{
-        const amt=Number(body.querySelector('#sfm-withdraw')?.value)||0;
-        if(amt<=0) return;
-        const bal=body.querySelector('#sfm-balance');
-        bal.value=Number(bal.value||0)-amt;
-        body.querySelector('#sfm-withdraw').value='';
-        showToast(`-${fmt(amt)}`,'error',1000);
-      });
-      // Transfer
-      body.querySelector('#sfm-transfer-btn')?.addEventListener('click',()=>{
-        const amt=Number(body.querySelector('#sfm-transfer-amt')?.value)||0;
-        const target=body.querySelector('#sfm-transfer-target')?.value;
-        if(amt<=0||!target) return;
-        const bal=body.querySelector('#sfm-balance');
-        bal.value=Number(bal.value||0)-amt;
-        // Apply transfer to target immediately in override
-        if(!months[startIdx].savingOverride) months[startIdx].savingOverride={...currentAcc};
-        months[startIdx].savingOverride[target]=(Number(months[startIdx].savingOverride[target]||currentAcc[target]||0))+amt;
-        body.querySelector('#sfm-transfer-amt').value='';
-        showToast(`Transfer ${fmt(amt)} → ${target}`,'success',1500);
-      });
-      // Save
+
+      // Save handler
       body.querySelector('#sfm-save')?.addEventListener('click',async()=>{
         const newName=(body.querySelector('#sfm-name')?.value||'').trim();
-        const newVal=Number(body.querySelector('#sfm-balance')?.value)||0;
         if(!newName){document.getElementById('saving-modal-error').textContent='Please enter fund name';return;}
-        if(!months[startIdx].savingOverride) months[startIdx].savingOverride={...currentAcc};
+        const newInitial=Number(body.querySelector('#sfm-initial')?.value)||0;
+        const selectedMonthIdx=Number(monthSelect?.value||0);
+        const newMonthly=Number(monthlyInput?.value)||0;
+
+        // Update savingInitial
         if(!isNew && newName!==fundName){
-          delete months[startIdx].savingOverride[fundName];
+          delete savingInitial[fundName];
         }
-        months[startIdx].savingOverride[newName]=newVal;
+        savingInitial[newName]=newInitial;
+
+        // Update the selected month's saving item
+        const targetMonth=months[selectedMonthIdx];
+        if(!targetMonth.saving) targetMonth.saving=[];
+        const existingIdx=targetMonth.saving.findIndex(s=>getSavingBucketKey(s.n)===getSavingBucketKey(isNew?newName:fundName));
+        if(existingIdx>=0){
+          targetMonth.saving[existingIdx].n=newName;
+          targetMonth.saving[existingIdx].v=newMonthly;
+        }else if(newMonthly>0){
+          targetMonth.saving.push({n:newName,v:newMonthly});
+        }
+
+        // If renamed, update all months' saving items
+        if(!isNew && newName!==fundName){
+          months.forEach(m=>{
+            (m.saving||[]).forEach(s=>{
+              if(getSavingBucketKey(s.n)===getSavingBucketKey(fundName)) s.n=newName;
+            });
+          });
+        }
+
         recalcAll();
         saveMonthsToLocal();
         closeSavingModal();
         renderApp('sec-saving-tool');
-        showToast(`${newName}: ${fmt(newVal)}`,'success',2200,'Saved');
+        showToast(`${newName}: ${fmt(newInitial)} + ${fmt(newMonthly)}/mo`,'success',2200,'Saved');
         try{await syncMonthsToSheet();}catch(e){
           console.warn('syncMonthsToSheet failed',e);
           showToast('Saved locally, but Sheet sync failed','error',3400,'Sync Error');
         }
       });
-      // Delete
+
+      // Delete handler
       body.querySelector('#sfm-delete')?.addEventListener('click',async()=>{
-        if(!months[startIdx].savingOverride) months[startIdx].savingOverride={...currentAcc};
-        months[startIdx].savingOverride[fundName]=0;
+        delete savingInitial[fundName];
+        // Remove from all months' saving arrays
+        months.forEach(m=>{
+          if(m.saving) m.saving=m.saving.filter(s=>getSavingBucketKey(s.n)!==getSavingBucketKey(fundName));
+        });
         recalcAll();
         saveMonthsToLocal();
         closeSavingModal();
@@ -4919,15 +4928,6 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         el.addEventListener('click',()=>openFundModal(el.dataset.fund));
         el.addEventListener('mouseenter',()=>{el.style.transform='scale(1.03)';el.style.borderColor='#4ecdc4';});
         el.addEventListener('mouseleave',()=>{el.style.transform='';el.style.borderColor='transparent';});
-      });
-      document.querySelector('.sav-clear-all')?.addEventListener('click',async()=>{
-        const startIdx=getCurrentMonthIndex();
-        delete months[startIdx].savingOverride;
-        recalcAll();
-        saveMonthsToLocal();
-        renderApp('sec-saving-tool');
-        showToast('Reverted to calculated','success',2200,'Updated');
-        try{await syncMonthsToSheet();}catch(e){console.warn('sync failed',e);}
       });
     }
 
