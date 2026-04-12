@@ -2957,10 +2957,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const expenseAdjusted=Math.abs((month.expense||[])
         .filter((item)=>String(item.n||'').startsWith('ปรับออก'))
         .reduce((sum,item)=>sum+(Number(item.v)||0),0));
-      const savingWithdrawn=Math.abs((month.saving||[])
-        .filter((item)=>String(item.n||'').startsWith('ถอน'))
-        .reduce((sum,item)=>sum+(Number(item.v)||0),0));
-      return Number((expenseFromOther+expenseAdjusted+savingWithdrawn).toFixed(2));
+      return Number((expenseFromOther+expenseAdjusted).toFixed(2));
     }
 
     function resolveSavingBucketName(name){
@@ -3015,6 +3012,10 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     }
 
     function recalcAll(){
+      // Clean up legacy expense-withdrawal entries from savings (now handled via expense paySource)
+      months.forEach(m=>{
+        if(m.saving) m.saving=m.saving.filter(s=>!(String(s.n||'').startsWith('ถอน') && String(s.n||'').includes('ชำระ')));
+      });
       let running={};
       DEFAULT_SAVING_BUCKETS.forEach((bucket)=>{ running[bucket]=0; });
       // Apply initial balances (before the system started)
@@ -3030,6 +3031,12 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         m.surplus=m.incomeTotal-m.expenseFromBalance-m.debtTotal-m.savingTotal;
         m.coveredFromOther=calcCoveredFromOtherFunds(m);
         const monthSaving=getSavingBreakdownMap(m.saving);
+        // Deduct expenses paid from savings funds
+        (m.expense||[]).forEach(item=>{
+          if(item.paySource==='saving' && item.payBucket){
+            monthSaving[item.payBucket]=(monthSaving[item.payBucket]||0)-(Number(item.v)||0);
+          }
+        });
         running=mergeAccMap(running, monthSaving);
         m.accMap={...running};
         m.acc={
@@ -3730,15 +3737,6 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
             recordHistoryChange(targetMonth.id, 'debt', beforeDebt, targetMonth.debt);
           }
         }
-      }
-
-      // Handle saving source: create withdrawal from savings
-      if(isExpense && paySource==='saving'){
-        const bucket=addItemSavingBucketEl.value;
-        const beforeSaving=cloneItems(month.saving);
-        addOrAccumulateItem(month.saving,`ถอน${bucket} (ชำระ${name})`,-amount);
-        ensureHistoryInitialized(editState.monthId, 'saving', beforeSaving);
-        recordHistoryChange(editState.monthId, 'saving', beforeSaving, month.saving);
       }
 
       recalcAll();
