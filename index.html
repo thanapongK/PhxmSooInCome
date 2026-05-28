@@ -421,8 +421,28 @@
       padding: 5px 0;
       font-size: 14px;
     }
+    .row-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
     .row-label { color: var(--text-2); }
     .row-val { font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+    .row-edit-item {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-2);
+      border-radius: 999px;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    .row-edit-item:hover { color: var(--text); border-color: var(--border-strong); }
     .row-total {
       display: flex;
       justify-content: space-between;
@@ -823,10 +843,29 @@
       border-color: var(--accent);
       box-shadow: 0 0 0 3px rgba(5,150,105,.1);
     }
+    .modal-month-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 6px;
+      max-height: 170px;
+      overflow: auto;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      background: var(--bg-card);
+    }
+    .modal-month-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-2);
+      white-space: nowrap;
+    }
 
     .edit-row {
       display: grid;
-      grid-template-columns: 1.2fr .8fr auto;
+      grid-template-columns: 1.2fr .8fr auto auto;
       gap: 8px;
       align-items: center;
       background: var(--bg-muted);
@@ -970,6 +1009,19 @@
       transition: all .15s var(--ease);
     }
     .row-close-plan:hover { background: #d1fae5; }
+    .row-edit-inline {
+      border: none;
+      background: #dbeafe;
+      color: #1d4ed8;
+      border-radius: var(--r-sm);
+      padding: 9px 12px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 13px;
+      font-family: inherit;
+      transition: all .15s var(--ease);
+    }
+    .row-edit-inline:hover { background: #bfdbfe; }
     .plan-note {
       font-size: 11px;
       color: #065f46;
@@ -1369,7 +1421,7 @@
       <div class="modal-head">
         <div>
           <div class="modal-title" id="modal-title">แก้ไขรายการ</div>
-          <div class="modal-sub">เพิ่ม ลบ หรือแก้ชื่อและจำนวนได้ แล้วกดบันทึก</div>
+          <div class="modal-sub" id="modal-sub">เลือก Edit เพื่อแก้ไขรายรายการ หรือกด Delete เพื่อลบ</div>
         </div>
         <button class="modal-close" type="button" id="modal-close" aria-label="Close">×</button>
       </div>
@@ -1385,14 +1437,19 @@
         <div class="modal-policy-row">
           <label class="modal-policy-label" id="modal-recurring-label" for="modal-recurring-mode">รูปแบบการเพิ่ม</label>
           <select id="modal-recurring-mode" class="modal-policy-input">
-            <option value="all">เพิ่มทุกเดือนถัดไป</option>
-            <option value="span">เพิ่มเฉพาะบางเดือน</option>
-            <option value="current">เพิ่มเฉพาะเดือนนี้</option>
+            <option value="current">เฉพาะเดือนนี้</option>
+            <option value="all">เดือนนี้เป็นต้นไป</option>
+            <option value="span">เดือนนี้ + ถัดไปอีก ... เดือน</option>
+            <option value="custom">กำหนดเอง (เลือกเดือน)</option>
           </select>
         </div>
         <div id="modal-recurring-months-wrap" class="modal-policy-row" style="display:none;">
           <label class="modal-policy-label" for="modal-recurring-months">จำนวนเดือน (นับรวมเดือนปัจจุบัน)</label>
           <input id="modal-recurring-months" class="modal-policy-input" type="number" min="1" step="1" value="3" placeholder="เช่น 3">
+        </div>
+        <div id="modal-recurring-custom-wrap" class="modal-policy-row" style="display:none;">
+          <div class="modal-policy-label">เลือกเดือนที่ต้องการแก้</div>
+          <div id="modal-recurring-custom-list" class="modal-month-list"></div>
         </div>
       </div>
       <div class="modal-actions">
@@ -1408,6 +1465,44 @@
         </div>
       </div>
       <div class="modal-error" id="modal-error"></div>
+    </div>
+  </div>
+
+  <div id="item-edit-modal" class="modal-overlay" hidden>
+    <div class="modal" style="max-width:560px;">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="item-edit-title">แก้ไขรายการ</div>
+          <div class="modal-sub" id="item-edit-sub">แก้ชื่อและจำนวนของรายการนี้</div>
+        </div>
+        <button class="modal-close" type="button" id="item-edit-close" aria-label="Close">×</button>
+      </div>
+      <div class="debt-plan-box" style="margin-bottom:10px;">
+        <input id="item-edit-name" class="salary-calc-input" type="text" placeholder="ชื่อรายการ">
+        <input id="item-edit-amount" class="salary-calc-input" type="number" step="any" placeholder="จำนวนเงิน">
+        <div class="modal-policy-row" style="margin-top:8px;">
+          <label class="modal-policy-label" for="item-edit-mode">ขอบเขตการแก้ไข</label>
+          <select id="item-edit-mode" class="modal-policy-input">
+            <option value="current">เฉพาะเดือนนี้</option>
+            <option value="all">เดือนนี้เป็นต้นไป</option>
+            <option value="span">เดือนนี้ + ถัดไปอีก ... เดือน</option>
+            <option value="custom">กำหนดเอง (เลือกเดือน)</option>
+          </select>
+        </div>
+        <div id="item-edit-months-wrap" class="modal-policy-row" style="display:none; margin-top:8px;">
+          <label class="modal-policy-label" for="item-edit-months">จำนวนเดือน (นับรวมเดือนปัจจุบัน)</label>
+          <input id="item-edit-months" class="modal-policy-input" type="number" min="1" step="1" value="3">
+        </div>
+        <div id="item-edit-custom-wrap" class="modal-policy-row" style="display:none; margin-top:8px;">
+          <div class="modal-policy-label">เลือกเดือนที่ต้องการแก้</div>
+          <div id="item-edit-custom-list" class="modal-month-list"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn" type="button" id="item-edit-cancel" style="margin-left:auto;">Cancel</button>
+        <button class="btn primary" type="button" id="item-edit-save">บันทึกการแก้ไข</button>
+      </div>
+      <div class="modal-error" id="item-edit-error"></div>
     </div>
   </div>
 
@@ -1451,14 +1546,19 @@
         <div class="modal-policy-row" style="margin-bottom:8px;">
           <label class="modal-policy-label" id="add-item-mode-label" for="add-item-mode">รูปแบบการเพิ่ม</label>
           <select id="add-item-mode" class="modal-policy-input">
-            <option value="all">เพิ่มทุกเดือนถัดไป</option>
-            <option value="span">เพิ่มเฉพาะบางเดือน</option>
-            <option value="current">เพิ่มเฉพาะเดือนนี้</option>
+            <option value="current">เฉพาะเดือนนี้</option>
+            <option value="all">เดือนนี้เป็นต้นไป</option>
+            <option value="span">เดือนนี้ + ถัดไปอีก ... เดือน</option>
+            <option value="custom">กำหนดเอง (เลือกเดือน)</option>
           </select>
         </div>
         <div id="add-item-months-wrap" class="modal-policy-row" style="display:none;">
           <label class="modal-policy-label" for="add-item-months">จำนวนเดือน (นับรวมเดือนปัจจุบัน)</label>
           <input id="add-item-months" class="modal-policy-input" type="number" min="1" step="1" value="3" placeholder="เช่น 3">
+        </div>
+        <div id="add-item-custom-wrap" class="modal-policy-row" style="display:none;">
+          <div class="modal-policy-label">เลือกเดือนที่ต้องการเพิ่ม</div>
+          <div id="add-item-custom-list" class="modal-month-list"></div>
         </div>
         <div id="add-item-paysource-wrap" class="modal-policy-row" style="display:none; margin-bottom:8px;">
           <label class="modal-policy-label" for="add-item-paysource">แหล่งเงินที่ใช้จ่าย</label>
@@ -1707,12 +1807,10 @@
       const iconMap={success:'✓',error:'!',info:'i'};
       const toastEl=document.createElement('div');
       toastEl.className=`toast-item toast-${safeType}`;
-      toastEl.style.setProperty('--toast-duration', `${Math.max(900,Number(duration)||2800)}ms`);
-      toastEl.dataset.toastId=`toast_${Date.now()}_${++toastCounter}`;
       toastEl.innerHTML=`
         <div class="toast-icon">${iconMap[safeType]}</div>
         <div>
-          <div class="toast-title">${escapeHtml(title)}</div>
+          <div class="toast-title">${escapeHtml(title||'แจ้งเตือน')}</div>
           <div class="toast-text">${escapeHtml(message)}</div>
         </div>
         <button class="toast-close" type="button" aria-label="Close">×</button>
@@ -1720,8 +1818,12 @@
       `;
       const closeBtn=toastEl.querySelector('.toast-close');
       closeBtn?.addEventListener('click',()=>removeToast(toastEl));
+      const dur=Math.max(500,Number(duration)||0);
+      toastEl.style.setProperty('--toast-duration',`${dur}ms`);
+      const toastId=++toastCounter;
+      toastEl.dataset.toastId=String(toastId);
       toastStackEl.appendChild(toastEl);
-      globalThis.setTimeout(()=>removeToast(toastEl), Math.max(900,Number(duration)||2800));
+      globalThis.setTimeout(()=>removeToast(toastEl),dur+120);
     }
     const confirmModalEl=document.getElementById('confirm-modal');
     const confirmTitleEl=document.getElementById('confirm-title');
@@ -1738,7 +1840,7 @@
       }
     }
     function showConfirmDialog(message,title='ยืนยันการทำรายการ'){
-      if(!confirmModalEl) return Promise.resolve(globalThis.confirm(message));
+      if(!confirmModalEl || !confirmTitleEl || !confirmTextEl) return Promise.resolve(false);
       if(confirmResolve){
         closeConfirmDialog(false);
       }
@@ -1790,14 +1892,40 @@
       const salary=toolState?.salary||{};
       const fallback='jan';
       const resolveStart=(value)=>monthIndexById(value)>=0?value:'';
+      const resolveDay=(value)=>{
+        const day=Math.floor(Number(value)||1);
+        if(!Number.isFinite(day) || day<1) return 1;
+        return Math.min(31, day);
+      };
+      const resolveOldEnd=(value)=>{
+        const day=Math.floor(Number(value)||0);
+        if(!Number.isFinite(day) || day<0) return 0;
+        return Math.min(31, day);
+      };
+      const resolveType=(value)=>value==='jobchange'?'jobchange':'raise';
+      const resolveMode=(value)=>value==='amount'?'amount':'percent';
       return {
         salary_th:{
           label:'ธนพงษ์',
-          startMonthId:resolveStart(salary.thRaiseStartMonthId ?? salary.startMonthId ?? fallback)
+          startMonthId:resolveStart(salary.thRaiseStartMonthId ?? salary.startMonthId ?? fallback),
+          adjustType:resolveType(salary.thAdjustType),
+          raiseMode:resolveMode(salary.thRaiseMode),
+          raisePct:Number(salary.thRaisePct)||0,
+          raiseAmount:Number(salary.thRaiseAmount)||0,
+          startDay:resolveDay(salary.thRaiseStartDay),
+          oldJobEndDay:resolveOldEnd(salary.thOldJobEndDay),
+          newRate:Math.max(0, Number(salary.thNewRate)||0)
         },
         salary_sp:{
           label:'สุพิชา',
-          startMonthId:resolveStart(salary.spRaiseStartMonthId ?? salary.startMonthId ?? fallback)
+          startMonthId:resolveStart(salary.spRaiseStartMonthId ?? salary.startMonthId ?? fallback),
+          adjustType:resolveType(salary.spAdjustType),
+          raiseMode:resolveMode(salary.spRaiseMode),
+          raisePct:Number(salary.spRaisePct)||0,
+          raiseAmount:Number(salary.spRaiseAmount)||0,
+          startDay:resolveDay(salary.spRaiseStartDay),
+          oldJobEndDay:resolveOldEnd(salary.spOldJobEndDay),
+          newRate:Math.max(0, Number(salary.spNewRate)||0)
         }
       };
     }
@@ -1806,13 +1934,24 @@
       const monthIds=[];
       months.forEach((month,index)=>{
         if(index===0) return;
-        const prevMonth=months[index-1];
-        const thNow=Number((month.income||[]).find((item)=>getSalaryKey(item.n)==='salary_th')?.v||0);
-        const thPrev=Number((prevMonth.income||[]).find((item)=>getSalaryKey(item.n)==='salary_th')?.v||0);
-        const spNow=Number((month.income||[]).find((item)=>getSalaryKey(item.n)==='salary_sp')?.v||0);
-        const spPrev=Number((prevMonth.income||[]).find((item)=>getSalaryKey(item.n)==='salary_sp')?.v||0);
+        const thEntry=(month.income||[]).find((item)=>getSalaryKey(item)==='salary_th');
+        const spEntry=(month.income||[]).find((item)=>getSalaryKey(item)==='salary_sp');
+        const thAdjusted=Boolean(
+          thEntry && (
+            thEntry.salaryAdjustStartMonthId===month.id ||
+            thEntry.salaryAdjustType ||
+            thEntry.salaryProrated
+          )
+        );
+        const spAdjusted=Boolean(
+          spEntry && (
+            spEntry.salaryAdjustStartMonthId===month.id ||
+            spEntry.salaryAdjustType ||
+            spEntry.salaryProrated
+          )
+        );
         const bonus=Number((month.income||[]).find((entry)=>String(entry.n||'').includes('โบนัส'))?.v||0);
-        if(thNow!==thPrev || spNow!==spPrev || bonus>0){
+        if(thAdjusted || spAdjusted || bonus>0){
           monthIds.push(month.id);
         }
       });
@@ -1827,19 +1966,35 @@
       const bonus=Number((month?.income||[]).find((entry)=>String(entry.n||'').includes('โบนัส'))?.v||0);
 
       const buildPersonBlock=(key)=>{
-        const entry=(month?.income||[]).find((item)=>getSalaryKey(item.n)===key);
-        const prevEntry=(prevMonth?.income||[]).find((item)=>getSalaryKey(item.n)===key);
-        const oldSalary=Number(prevEntry?.v||0);
-        const newSalary=Number(entry?.v||0);
+        const entry=(month?.income||[]).find((item)=>getSalaryKey(item)===key);
+        const prevEntry=(prevMonth?.income||[]).find((item)=>getSalaryKey(item)===key);
+        const adjustedThisMonth=Boolean(
+          entry && (
+            entry.salaryAdjustStartMonthId===month.id ||
+            entry.salaryAdjustType ||
+            entry.salaryProrated
+          )
+        );
+        const oldSalary=adjustedThisMonth?Number((entry?.salaryAdjustOldSalary ?? prevEntry?.v) || 0):Number(prevEntry?.v||0);
+        const newSalary=adjustedThisMonth?Number((entry?.salaryAdjustNewSalary ?? entry?.v) || 0):Number(entry?.v||0);
         const diff=newSalary-oldSalary;
         const pct=oldSalary>0?(diff/oldSalary)*100:0;
-        const changedThisMonth=diff!==0;
+        const changedThisMonth=adjustedThisMonth && diff!==0;
         const status=changedThisMonth?'ปรับเดือนนี้':'ไม่ปรับเดือนนี้';
         const personLabel=key==='salary_th'?'ธนพงษ์':'สุพิชา';
+        const detailType=String(entry?.salaryAdjustType||'');
+        let detailHtml='';
+        if(detailType==='raise_percent'){
+          detailHtml=`<div class="special-row"><span class="special-label">รูปแบบปรับ</span><span class="special-val">เพิ่ม ${Number(entry?.salaryAdjustDeltaPct||0).toFixed(2)}% (+${fmt(entry?.salaryAdjustDeltaBaht||0)} ฿)</span></div>`;
+        }else if(detailType==='raise_amount'){
+          detailHtml=`<div class="special-row"><span class="special-label">รูปแบบปรับ</span><span class="special-val">เพิ่มเป็นจำนวนเงิน +${fmt(entry?.salaryAdjustDeltaBaht||0)} ฿</span></div>`;
+        }else if(detailType==='jobchange'){
+          detailHtml=`<div class="special-row"><span class="special-label">รูปแบบปรับ</span><span class="special-val">ย้ายงาน (ออกเดิม ${entry?.salaryAdjustOldEndDay||0} | เริ่มใหม่ ${entry?.salaryAdjustStartDay||1})</span></div><div class="special-row"><span class="special-label">เรทเงินใหม่</span><span class="special-val">${fmt(entry?.salaryAdjustNewSalary||newSalary)} ฿</span></div>`;
+        }
         return {
           changedThisMonth,
           diff,
-          html:`<div style="margin-bottom:10px"><div style="font-size:12px;color:#854F0B;font-weight:500;margin-bottom:6px">${personLabel}</div><div class="special-row"><span class="special-label">สถานะเดือนนี้</span><span class="special-val">${status}</span></div><div class="special-row"><span class="special-label">เงินเดือนเดิม (${prevMonth?(prevMonth.label+' '+prevMonth.year):'-'})</span><span class="special-val">${fmt(oldSalary)} ฿</span></div><div class="special-row"><span class="special-label">เงินเดือนใหม่ (${month.label+' '+month.year})</span><span class="special-val">${fmt(newSalary)} ฿ <span class="badge-up">${pct>=0?'+':''}${pct.toFixed(1)}%</span></span></div><div class="special-row"><span class="special-label">เพิ่มขึ้น / เดือน</span><span class="special-val" style="color:#3B6D11">${diff>=0?'+':''}${fmt(diff)} ฿</span></div></div>`
+          html:`<div style="margin-bottom:10px"><div style="font-size:12px;color:#854F0B;font-weight:500;margin-bottom:6px">${personLabel}</div><div class="special-row"><span class="special-label">สถานะเดือนนี้</span><span class="special-val">${status}</span></div>${detailHtml}<div class="special-row"><span class="special-label">เงินเดือนเดิม (${prevMonth?(prevMonth.label+' '+prevMonth.year):'-'})</span><span class="special-val">${fmt(oldSalary)} ฿</span></div><div class="special-row"><span class="special-label">เงินเดือนใหม่ (${month.label+' '+month.year})</span><span class="special-val">${fmt(newSalary)} ฿ <span class="badge-up">${pct>=0?'+':''}${pct.toFixed(1)}%</span></span></div><div class="special-row"><span class="special-label">เพิ่มขึ้น / เดือน</span><span class="special-val" style="color:#3B6D11">${diff>=0?'+':''}${fmt(diff)} ฿</span></div></div>`
         };
       };
 
@@ -1920,14 +2075,25 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     // Set this after deploying Google Apps Script Web App for write-back sync.
     const SHEET_SYNC_URL='https://script.google.com/macros/s/AKfycbzDixRzSo20rhkKoOPIxM0dNA6qZHYTwQUsAUsZV5v52aACcdybIfVD3eXqpXuYC68QLg/exec';
     const params=new URLSearchParams(location.search);
+    const CLUSTER_MODE=(params.get('cluster')||params.get('env')||'').trim().toLowerCase();
+    const IS_DEV_CLUSTER=CLUSTER_MODE==='dev';
     const IS_TEST_MODE=params.get('mode')==='test'||params.get('test')==='1';
-    const STORAGE_PREFIX=IS_TEST_MODE?'couple_budget_test':'couple_budget';
+    const IS_ISOLATED_MODE=IS_TEST_MODE||IS_DEV_CLUSTER;
+    let STORAGE_PREFIX='couple_budget';
+    if(IS_TEST_MODE){
+      STORAGE_PREFIX='couple_budget_test';
+    }else if(IS_DEV_CLUSTER){
+      STORAGE_PREFIX='couple_budget_dev';
+    }
     const LOCAL_MONTHS_KEY=`${STORAGE_PREFIX}_months_v1`;
     const LEGACY_DEBT_MIGRATION_KEY=`${STORAGE_PREFIX}_legacy_debt_migration_v3`;
     const TOOLS_STATE_KEY=`${STORAGE_PREFIX}_tools_v1`;
     const HISTORY_TTL_MS=24*60*60*1000;
     if(IS_TEST_MODE && !document.title.includes('[TEST]')){
       document.title=`[TEST] ${document.title}`;
+    }
+    if(IS_DEV_CLUSTER && !document.title.includes('[DEV]')){
+      document.title=`[DEV] ${document.title}`;
     }
 
     function parseMoney(value){
@@ -1989,10 +2155,30 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         return getSavingRecurringKeyName(item?.n);
       }
       if(groupKey==='income'){
-        const salaryKey=getSalaryKey(item?.n||'');
+        const salaryKey=getSalaryKey(item);
         if(salaryKey) return `income:${salaryKey}`;
       }
       return `${groupKey}:${normalizeRecurringName(item?.n)}`;
+    }
+
+    function ensureIncomeSalaryKeys(){
+      const ridToSalaryKey=new Map();
+      months.forEach((month)=>{
+        (month.income||[]).forEach((item)=>{
+          const key=getSalaryKey(item);
+          if(!key) return;
+          item.salaryKey=key;
+          if(item.rid) ridToSalaryKey.set(item.rid,key);
+        });
+      });
+      months.forEach((month)=>{
+        (month.income||[]).forEach((item)=>{
+          if(item.salaryKey) return;
+          if(!item.rid) return;
+          const key=ridToSalaryKey.get(item.rid);
+          if(key) item.salaryKey=key;
+        });
+      });
     }
 
     function harmonizeRecurringRids(){
@@ -2201,7 +2387,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     }
 
     async function loadMonthsFromSheet(){
-      if(IS_TEST_MODE) return;
+      if(IS_ISOLATED_MODE) return;
       const readUrl=SHEET_SYNC_URL+'?action=read&_t='+Date.now();
       const response=await fetch(readUrl,{cache:'no-store'});
       if(!response.ok) throw new Error('Sheet API returned '+response.status);
@@ -2217,7 +2403,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     }
 
     async function syncMonthsToSheet(){
-      if(IS_TEST_MODE||!SHEET_SYNC_URL){
+      if(IS_ISOLATED_MODE||!SHEET_SYNC_URL){
         return;
       }
       const payload={
@@ -2679,7 +2865,16 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     const debtPlanRateModeInput=document.getElementById('debt-plan-rate-mode');
     const debtPlanSummaryEl=document.getElementById('debt-plan-summary');
     const debtPlanErrorEl=document.getElementById('debt-plan-error');
-    const debtPlanState={monthId:'',groupKey:'debt'};
+    const debtPlanApplyBtn=document.getElementById('debt-plan-apply');
+    const debtPlanTitleEl=document.querySelector('#debt-plan-modal .modal-title');
+    const debtPlanSubEl=document.getElementById('debt-plan-sub');
+    const debtPlanState={
+      monthId:'',
+      groupKey:'debt',
+      mode:'create',
+      planId:'',
+      remainingPlanMonths:0
+    };
 
     function updateDebtPlanModeUI(){
       const inputMode=debtPlanInputModeInput.value||'total';
@@ -2720,8 +2915,48 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       }
     }
 
+    function getDebtPlanContext(monthId, planId){
+      const startIndex=monthIndexById(monthId);
+      if(startIndex<0 || !planId) return null;
+      const touched=[];
+      for(let index=startIndex;index<months.length;index++){
+        const month=months[index];
+        const row=(month.debt||[]).find((item)=>item.debtPlanId===planId && !item.debtPlanClosed);
+        if(!row) continue;
+        touched.push({monthId:month.id,row});
+      }
+      if(!touched.length) return null;
+      const current=touched[0].row;
+      const remainingPrincipal=touched.reduce((sum,entry)=>sum+(Number(entry.row.debtPlanPrincipalPart)||0),0);
+      return {
+        touched,
+        current,
+        remainingMonths:touched.length,
+        remainingPrincipal:Number(remainingPrincipal.toFixed(2))
+      };
+    }
+
+    function setDebtPlanModalMode(mode){
+      debtPlanState.mode=mode;
+      const isEdit=mode==='edit';
+      if(debtPlanTitleEl){
+        debtPlanTitleEl.textContent=isEdit?'แก้ไขรายการผ่อนรายเดือน':'เพิ่มรายการผ่อนรายเดือน';
+      }
+      if(debtPlanSubEl){
+        debtPlanSubEl.textContent=isEdit
+          ? 'แก้ยอดหรือจำนวนงวดได้ ระบบจะอัปเดตตั้งแต่เดือนนี้เป็นต้นไป'
+          : 'กำหนดยอดผ่อน พร้อมเลือกโหมดกรอกยอดได้';
+      }
+      if(debtPlanApplyBtn){
+        debtPlanApplyBtn.textContent=isEdit?'Save Changes':'Add Installment';
+      }
+    }
+
     function openDebtPlanModal(){
       debtPlanState.monthId=editState.monthId;
+      debtPlanState.planId='';
+      debtPlanState.remainingPlanMonths=0;
+      setDebtPlanModalMode('create');
       debtPlanErrorEl.textContent='';
       debtPlanNameInput.value='';
       debtPlanInputModeInput.value='total';
@@ -2735,16 +2970,38 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       clearZeroNumberInputs(debtPlanModal);
     }
 
-    function closeDebtPlanModal(){
-      debtPlanModal.hidden=true;
+    function openDebtPlanEditModal(monthId, planId){
+      const context=getDebtPlanContext(monthId, planId);
+      if(!context){
+        showToast('ไม่พบข้อมูลแผนผ่อนที่แก้ไขได้', 'error', 2400, 'แก้ไขไม่สำเร็จ');
+        return;
+      }
+      debtPlanState.monthId=monthId;
+      debtPlanState.planId=planId;
+      debtPlanState.remainingPlanMonths=context.remainingMonths;
+      setDebtPlanModalMode('edit');
       debtPlanErrorEl.textContent='';
+
+      const current=context.current;
+      const inputMode=current.debtPlanInputMode||'total';
+      debtPlanNameInput.value=current.debtPlanName||current.n||'';
+      debtPlanInputModeInput.value=inputMode;
+      debtPlanMonthsInput.value=String(context.remainingMonths);
+      debtPlanRateInput.value=String(Number(current.debtPlanRate)||0);
+      debtPlanRateModeInput.value=current.debtPlanRateMode||'monthly';
+      if(inputMode==='installment'){
+        debtPlanPrincipalInput.value=String(Number(current.debtPlanPaymentPerMonth)||Number(current.v)||0);
+      }else{
+        debtPlanPrincipalInput.value=String(Number(context.remainingPrincipal)||0);
+      }
+
+      updateDebtPlanModeUI();
+      updateDebtPlanSummary();
+      debtPlanModal.hidden=false;
+      clearZeroNumberInputs(debtPlanModal);
     }
 
-    async function applyDebtPlanCreation(){
-      const startMonthId=debtPlanState.monthId||editState.monthId;
-      const startIndex=monthIndexById(startMonthId);
-      if(startIndex<0) return;
-
+    function readDebtPlanForm(startIndex){
       const name=debtPlanNameInput.value.trim();
       const amount=Number(debtPlanPrincipalInput.value);
       const monthsCount=Number.parseInt(debtPlanMonthsInput.value||'0',10);
@@ -2754,20 +3011,143 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
 
       if(!name){
         debtPlanErrorEl.textContent='กรุณากรอกชื่อยอดผ่อน';
-        return;
+        return null;
       }
       if(Number.isNaN(amount) || amount<=0){
         debtPlanErrorEl.textContent='ยอดเงินต้องมากกว่า 0';
-        return;
+        return null;
       }
       if(Number.isNaN(monthsCount) || monthsCount<=0){
         debtPlanErrorEl.textContent='จำนวนเดือนต้องมากกว่า 0';
-        return;
+        return null;
       }
       if(startIndex+monthsCount>months.length){
         debtPlanErrorEl.textContent='จำนวนเดือนเกินช่วงงบประมาณที่มีอยู่';
+        return null;
+      }
+
+      return {name,amount,monthsCount,rate,rateMode,inputMode};
+    }
+
+    function collectDebtPlanTouchedMonths(planId,startIndex,monthsCount){
+      const touchedMonthMap=new Map();
+      months.forEach((month)=>{
+        if((month.debt||[]).some((item)=>item.debtPlanId===planId)){
+          touchedMonthMap.set(month.id, cloneItems(month.debt));
+        }
+      });
+      for(let offset=0;offset<monthsCount;offset++){
+        const target=months[startIndex+offset];
+        if(target && !touchedMonthMap.has(target.id)){
+          touchedMonthMap.set(target.id, cloneItems(target.debt));
+        }
+      }
+      return touchedMonthMap;
+    }
+
+    function replaceDebtPlanFromMonth(startIndex,planId,name,plan,schedule){
+      months.forEach((month, index)=>{
+        if(index<startIndex) {
+          month.debt=(month.debt||[]).map((item)=>item.debtPlanId===planId?{...item,n:name,debtPlanName:name}:item);
+          return;
+        }
+        month.debt=(month.debt||[]).filter((item)=>item.debtPlanId!==planId);
+      });
+
+      for(let offset=0;offset<plan.months;offset++){
+        const targetMonth=months[startIndex+offset];
+        if(!targetMonth) continue;
+        targetMonth.debt.push(makeDebtPlanItem(plan, offset+1, schedule[offset]));
+      }
+    }
+
+    function recordDebtTouchedHistory(touchedMonthMap){
+      touchedMonthMap.forEach((beforeItems, monthIdKey)=>{
+        const targetMonth=months.find((item)=>item.id===monthIdKey);
+        if(!targetMonth) return;
+        ensureHistoryInitialized(monthIdKey, 'debt', beforeItems);
+        recordHistoryChange(monthIdKey, 'debt', beforeItems, targetMonth.debt);
+      });
+    }
+
+    async function applyDebtPlanEdit(){
+      const monthId=debtPlanState.monthId||editState.monthId;
+      const planId=debtPlanState.planId;
+      const startIndex=monthIndexById(monthId);
+      if(startIndex<0 || !planId) return;
+
+      const context=getDebtPlanContext(monthId, planId);
+      if(!context){
+        debtPlanErrorEl.textContent='ไม่พบแผนผ่อนที่กำลังแก้ไข';
         return;
       }
+
+      const form=readDebtPlanForm(startIndex);
+      if(!form) return;
+      const {name,amount,monthsCount,rate,rateMode,inputMode}=form;
+
+      const touchedMonthMap=collectDebtPlanTouchedMonths(planId,startIndex,monthsCount);
+
+      const principalTotal=inputMode==='total'
+        ? amount
+        : calcPrincipalFromPayment(amount, rate, rateMode, monthsCount);
+      const paymentPerMonth=inputMode==='total'
+        ? calcAmortizedPayment(amount, rate, rateMode, monthsCount)
+        : amount;
+
+      const baseRid=context.current.rid||genRid();
+      const plan={
+        rid:baseRid,
+        id:planId,
+        name,
+        principal:principalTotal,
+        inputMode,
+        principalPerInstallment:Number((principalTotal/monthsCount).toFixed(2)),
+        months:monthsCount,
+        rate,
+        rateMode,
+        paymentPerMonth:Number(paymentPerMonth.toFixed(2))
+      };
+      const schedule=buildDebtPlanSchedule(plan);
+      replaceDebtPlanFromMonth(startIndex,planId,name,plan,schedule);
+      recordDebtTouchedHistory(touchedMonthMap);
+
+      recalcAll();
+      saveMonthsToLocal();
+      renderApp(editState.activeTarget);
+      refreshOpenModalGroup();
+      const currentMonth=months.find((m)=>m.id===monthId);
+      if(currentMonth){
+        editState.originalItems=cloneItems(currentMonth.debt);
+      }
+      closeDebtPlanModal();
+      updateUndoRedoButtons();
+      showToast('อัปเดตรายการผ่อนเรียบร้อย', 'success', 2300, 'บันทึกสำเร็จ');
+      try{
+        await syncMonthsToSheet();
+      }catch(error){
+        console.warn('syncMonthsToSheet failed', error);
+        showToast('บันทึกแล้ว แต่ซิงก์ชีตไม่สำเร็จ', 'error', 3400, 'Sync มีปัญหา');
+      }
+    }
+
+    function closeDebtPlanModal(){
+      debtPlanModal.hidden=true;
+      debtPlanErrorEl.textContent='';
+    }
+
+    async function applyDebtPlanCreation(){
+      if(debtPlanState.mode==='edit'){
+        await applyDebtPlanEdit();
+        return;
+      }
+      const startMonthId=debtPlanState.monthId||editState.monthId;
+      const startIndex=monthIndexById(startMonthId);
+      if(startIndex<0) return;
+
+      const form=readDebtPlanForm(startIndex);
+      if(!form) return;
+      const {name,amount,monthsCount,rate,rateMode,inputMode}=form;
 
       const principalTotal=inputMode==='total'
         ? amount
@@ -3084,6 +3464,18 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     const addItemSavingWrapEl=document.getElementById('add-item-saving-wrap');
     const addItemSavingBucketEl=document.getElementById('add-item-saving-bucket');
     const addItemErrorEl=document.getElementById('add-item-error');
+    const itemEditState={monthId:'',groupKey:'',rid:'',salaryKey:'',activeTarget:'sec-may'};
+    const itemEditModalEl=document.getElementById('item-edit-modal');
+    const itemEditTitleEl=document.getElementById('item-edit-title');
+    const itemEditSubEl=document.getElementById('item-edit-sub');
+    const itemEditNameEl=document.getElementById('item-edit-name');
+    const itemEditAmountEl=document.getElementById('item-edit-amount');
+    const itemEditModeEl=document.getElementById('item-edit-mode');
+    const itemEditMonthsWrapEl=document.getElementById('item-edit-months-wrap');
+    const itemEditMonthsEl=document.getElementById('item-edit-months');
+    const itemEditCustomWrapEl=document.getElementById('item-edit-custom-wrap');
+    const itemEditCustomListEl=document.getElementById('item-edit-custom-list');
+    const itemEditErrorEl=document.getElementById('item-edit-error');
     const deficitState={monthId:'',amount:0,resolve:null};
     const DEFAULT_SAVING_BUCKETS=['เก็บแต่งงาน','สุพิชา (ส่วนตัว)','ประกันสังคม','กองทุน'];
 
@@ -3265,8 +3657,14 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const remainingInstallments=Number(meta.debtPlanRemainingMonths||0);
       const planNote=buildPlanNote(meta, remainingInstallments, closedSuffix);
       const deleteButton=isOpenDebtPlan ? '' : '<button type="button" class="row-delete" title="Delete item">Delete</button>';
+      const editItemButton=(!meta.debtPlanId && (meta.rid||row.dataset.rid))
+        ? '<button type="button" class="row-edit-inline" title="Edit item">Edit</button>'
+        : '';
       const closePlanButton=isOpenDebtPlan
         ? '<button type="button" class="row-close-plan" title="Close plan">Close Plan</button>'
+        : '';
+      const editPlanButton=isOpenDebtPlan
+        ? '<button type="button" class="row-edit-plan" title="Edit plan">Edit Plan</button>'
         : '';
 
       if(meta.debtPlanId){
@@ -3277,7 +3675,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
           </div>
           <div class="plan-card-bottom">
             <div class="plan-card-meta">${planNote}</div>
-            ${closePlanButton}
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">${editPlanButton}${closePlanButton}</div>
           </div>
           <div class="plan-hidden-inputs">
             <input class="edit-input js-name" type="text" value="${name.replaceAll('"','&quot;')}" readonly>
@@ -3290,12 +3688,14 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
         : '';
       row.innerHTML=`
         <div>
-          <input class="edit-input js-name" type="text" placeholder="ชื่อรายการ" value="${name.replaceAll('"','&quot;')}" ${isOpenDebtPlan?'readonly':''}>
+          <input class="edit-input js-name" type="text" placeholder="ชื่อรายการ" value="${name.replaceAll('"','&quot;')}" readonly>
           ${paySourceTag}
           ${planNote}
         </div>
-        <input class="edit-input js-value" type="number" step="any" placeholder="จำนวน" value="${valueText}" ${isOpenDebtPlan?'readonly':''}>
+        <input class="edit-input js-value" type="number" step="any" placeholder="จำนวน" value="${valueText}" readonly>
+        ${editItemButton}
         ${deleteButton}
+        ${editPlanButton}
         ${closePlanButton}
       `;
       }
@@ -3314,23 +3714,55 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
           closeDebtPlan(editState.monthId, meta.debtPlanId);
         });
       }
+      const editPlanBtn=row.querySelector('.row-edit-plan');
+      if(editPlanBtn){
+        editPlanBtn.addEventListener('click',()=>{
+          openDebtPlanEditModal(editState.monthId, meta.debtPlanId);
+        });
+      }
+      const editItemBtn=row.querySelector('.row-edit-inline');
+      if(editItemBtn){
+        editItemBtn.addEventListener('click',()=>{
+          const rid=row.dataset.rid||meta.rid;
+          if(!rid) return;
+          openItemEditModal(editState.monthId, editState.groupKey, rid);
+        });
+      }
       return row;
     }
 
-    function getSalaryKey(name){
-      const text=String(name||'');
+    function inferSalaryKeyFromName(name){
+      const text=String(name||'').trim();
       if(!text.includes('เงินเดือน')) return '';
-      if(text.includes('ธนพงษ์')) return 'salary_th';
-      if(text.includes('สุพิชา')) return 'salary_sp';
+      if(/ธนพง|thanap|tanap/i.test(text)) return 'salary_th';
+      if(/สุพิช|supich|supitc/i.test(text)) return 'salary_sp';
       return '';
+    }
+
+    function getSalaryKey(itemOrName){
+      if(itemOrName && typeof itemOrName==='object'){
+        if(itemOrName.salaryKey==='salary_th' || itemOrName.salaryKey==='salary_sp') return itemOrName.salaryKey;
+        return inferSalaryKeyFromName(itemOrName.n);
+      }
+      const text=String(itemOrName||'');
+      if(text==='salary_th' || text==='salary_sp') return text;
+      return inferSalaryKeyFromName(text);
+    }
+
+    function toSalaryDisplayName(key, fallbackName=''){
+      const custom=String(fallbackName||'').trim();
+      if(custom) return custom;
+      if(key==='salary_th') return 'เงินเดือน ธนพงษ์';
+      if(key==='salary_sp') return 'เงินเดือน สุพิชา';
+      return fallbackName||'เงินเดือน';
     }
 
     function buildSalaryMap(items){
       const map={};
       items.forEach((item)=>{
-        const key=getSalaryKey(item.n);
+        const key=getSalaryKey(item);
         if(key){
-          map[key]={n:item.n,v:Number(item.v)||0};
+          map[key]={n:item.n,v:Number(item.v)||0,salaryKey:key};
         }
       });
       return map;
@@ -3346,20 +3778,21 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       for(let i=startIndex+1;i<months.length;i++){
         const month=months[i];
         month.income=month.income.filter((entry)=>{
-          const key=getSalaryKey(entry.n);
+          const key=getSalaryKey(entry);
           if(!key) return true;
           if(newSalaryMap[key]){
-            entry.n=newSalaryMap[key].n;
+            entry.n=toSalaryDisplayName(key,newSalaryMap[key].n);
             entry.v=newSalaryMap[key].v;
+            entry.salaryKey=key;
             return true;
           }
           return !oldSalaryMap[key];
         });
 
         Object.keys(newSalaryMap).forEach((key)=>{
-          const hasKey=month.income.some(entry=>getSalaryKey(entry.n)===key);
+          const hasKey=month.income.some(entry=>getSalaryKey(entry)===key);
           if(!hasKey){
-            month.income.push({n:newSalaryMap[key].n,v:newSalaryMap[key].v});
+            month.income.push({n:toSalaryDisplayName(key,newSalaryMap[key].n),v:newSalaryMap[key].v,salaryKey:key});
           }
         });
       }
@@ -3456,6 +3889,155 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
 
     function updateModalRecurringMonthsVisibility(){
       modalRecurringMonthsWrapEl.style.display=modalRecurringModeEl.value==='span' ? 'grid' : 'none';
+    }
+
+    function resolveScopedMonthIds(startMonthId, mode, monthsCount, selectedMonthIds=[]){
+      const startIndex=monthIndexById(startMonthId);
+      if(startIndex<0) return [];
+      if(mode==='current') return [startMonthId];
+      if(mode==='all') return months.slice(startIndex).map((m)=>m.id);
+      if(mode==='span'){
+        const count=Math.max(1, Number(monthsCount)||1);
+        return months.slice(startIndex, Math.min(months.length, startIndex+count)).map((m)=>m.id);
+      }
+      if(mode==='custom'){
+        const allowed=new Set(months.slice(startIndex).map((m)=>m.id));
+        const picked=(selectedMonthIds||[]).filter((id)=>allowed.has(id));
+        if(!picked.includes(startMonthId)) picked.unshift(startMonthId);
+        return [...new Set(picked)];
+      }
+      return [startMonthId];
+    }
+
+    function renderScopedMonthChecklist(containerEl, startMonthId, selectedMonthIds, checkboxName){
+      if(!containerEl) return;
+      const startIndex=monthIndexById(startMonthId);
+      if(startIndex<0){
+        containerEl.innerHTML='';
+        return;
+      }
+      const selected=new Set(selectedMonthIds||[]);
+      containerEl.innerHTML=months.slice(startIndex).map((m, idx)=>{
+        const checked=selected.has(m.id) || idx===0;
+        const disabled=idx===0 ? 'disabled' : '';
+        return `<label class="modal-month-item"><input type="checkbox" name="${checkboxName}" value="${m.id}" ${checked?'checked':''} ${disabled}>${m.label} ${m.year}</label>`;
+      }).join('');
+    }
+
+    function updateItemEditScopeUI(){
+      const mode=itemEditModeEl.value;
+      itemEditMonthsWrapEl.style.display=mode==='span' ? 'grid' : 'none';
+      itemEditCustomWrapEl.style.display=mode==='custom' ? 'grid' : 'none';
+      if(mode==='custom'){
+        const selected=[...itemEditCustomListEl.querySelectorAll('input[name="item-edit-month"]:checked')].map((el)=>el.value);
+        renderScopedMonthChecklist(itemEditCustomListEl, itemEditState.monthId, selected, 'item-edit-month');
+      }
+    }
+
+    function openItemEditModal(monthId,groupKey,rid){
+      const month=months.find((m)=>m.id===monthId);
+      if(!month) return;
+      const item=(month[groupKey]||[]).find((entry)=>entry.rid===rid);
+      if(!item) return;
+      if(item.debtPlanId){
+        openEditModal(monthId, groupKey);
+        return;
+      }
+      itemEditState.monthId=monthId;
+      itemEditState.groupKey=groupKey;
+      itemEditState.rid=rid;
+      itemEditState.salaryKey=getSalaryKey(item)||'';
+      itemEditState.activeTarget=document.querySelector('.mnav-btn.active')?.dataset.target||('sec-'+monthId);
+      itemEditTitleEl.textContent=`แก้ไขรายการ: ${item.n}`;
+      itemEditSubEl.textContent=`${month.label} ${month.year}`;
+      itemEditNameEl.value=item.n||'';
+      itemEditAmountEl.value=Number(item.v)||0;
+      itemEditModeEl.value='current';
+      itemEditMonthsEl.value='3';
+      itemEditErrorEl.textContent='';
+      renderScopedMonthChecklist(itemEditCustomListEl, monthId, [monthId], 'item-edit-month');
+      updateItemEditScopeUI();
+      itemEditModalEl.hidden=false;
+      clearZeroNumberInputs(itemEditModalEl);
+    }
+
+    function closeItemEditModal(){
+      itemEditModalEl.hidden=true;
+      itemEditErrorEl.textContent='';
+    }
+
+    async function saveItemEditModal(){
+      const name=itemEditNameEl.value.trim();
+      const value=Number(itemEditAmountEl.value);
+      if(!name){
+        itemEditErrorEl.textContent='กรุณากรอกชื่อรายการ';
+        return;
+      }
+      if(Number.isNaN(value)){
+        itemEditErrorEl.textContent='กรุณากรอกจำนวนเงินให้ถูกต้อง';
+        return;
+      }
+
+      const mode=itemEditModeEl.value;
+      const monthsCount=Math.max(1, Math.floor(Number(itemEditMonthsEl.value)||1));
+      const selectedMonthIds=[...itemEditCustomListEl.querySelectorAll('input[name="item-edit-month"]:checked')].map((el)=>el.value);
+      const targetMonthIds=resolveScopedMonthIds(itemEditState.monthId, mode, monthsCount, selectedMonthIds);
+      if(!targetMonthIds.length){
+        itemEditErrorEl.textContent='ไม่พบเดือนที่ต้องการแก้ไข';
+        return;
+      }
+
+      let changedAny=false;
+      targetMonthIds.forEach((monthId)=>{
+        const month=months.find((m)=>m.id===monthId);
+        if(!month) return;
+        const groupItems=month[itemEditState.groupKey]||[];
+        let idx=groupItems.findIndex((entry)=>entry.rid===itemEditState.rid && !entry.debtPlanId);
+        if(idx<0 && itemEditState.groupKey==='income' && itemEditState.salaryKey){
+          idx=groupItems.findIndex((entry)=>getSalaryKey(entry)===itemEditState.salaryKey && !entry.debtPlanId);
+        }
+        const before=cloneItems(groupItems);
+        if(idx>=0){
+          groupItems[idx]={...groupItems[idx], n:name, v:value};
+          if(itemEditState.groupKey==='income' && itemEditState.salaryKey){
+            groupItems[idx].salaryKey=itemEditState.salaryKey;
+          }
+          changedAny=true;
+          ensureHistoryInitialized(month.id, itemEditState.groupKey, before);
+          recordHistoryChange(month.id, itemEditState.groupKey, before, groupItems);
+          return;
+        }
+        if(monthId!==itemEditState.monthId){
+          const added={n:name,v:value,rid:itemEditState.rid};
+          if(itemEditState.groupKey==='income' && itemEditState.salaryKey){
+            added.salaryKey=itemEditState.salaryKey;
+          }
+          groupItems.push(added);
+          changedAny=true;
+          ensureHistoryInitialized(month.id, itemEditState.groupKey, before);
+          recordHistoryChange(month.id, itemEditState.groupKey, before, groupItems);
+        }
+      });
+
+      if(!changedAny){
+        itemEditErrorEl.textContent='ไม่พบรายการที่จะแก้ไข';
+        return;
+      }
+
+      recalcAll();
+      saveMonthsToLocal();
+      renderApp(itemEditState.activeTarget);
+      if(!modalEl.hidden){
+        openEditModal(editState.monthId, editState.groupKey);
+      }
+      closeItemEditModal();
+      showToast('บันทึกการแก้ไขรายการแล้ว', 'success', 2000, 'บันทึกสำเร็จ');
+      try{
+        await syncMonthsToSheet();
+      }catch(error){
+        console.warn('syncMonthsToSheet failed', error);
+        showToast('แก้ไขแล้ว แต่ซิงก์ชีตไม่สำเร็จ', 'error', 3400, 'Sync มีปัญหา');
+      }
     }
 
     function updateModalPolicyUI(){
@@ -3889,6 +4471,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     addItemIncomeTypeEl.addEventListener('change',updateAddItemUIForGroup);
     addItemModeEl.addEventListener('change',updateAddItemMonthsVisibility);
     addItemPaySourceEl.addEventListener('change',updateAddItemPaySourceUI);
+    itemEditModeEl.addEventListener('change',updateItemEditScopeUI);
     document.getElementById('add-item-cancel').addEventListener('click',closeAddItemModal);
     document.getElementById('add-item-close').addEventListener('click',closeAddItemModal);
     document.getElementById('add-item-save').addEventListener('click',saveAddItemModal);
@@ -3913,6 +4496,14 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     document.getElementById('modal-redo').addEventListener('click',()=>{
       if(editState.monthId && editState.groupKey){
         redoHistory(editState.monthId, editState.groupKey);
+      }
+    });
+    document.getElementById('item-edit-close').addEventListener('click',closeItemEditModal);
+    document.getElementById('item-edit-cancel').addEventListener('click',closeItemEditModal);
+    document.getElementById('item-edit-save').addEventListener('click',saveItemEditModal);
+    itemEditModalEl.addEventListener('click',(event)=>{
+      if(event.target===itemEditModalEl){
+        closeItemEditModal();
       }
     });
 
@@ -4118,6 +4709,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     });
 
     globalThis.editCard=openEditModal;
+    globalThis.editItem=openItemEditModal;
 
     function renderCard(title,cls,items,total,monthId,groupKey){
       const renderRowLabel=(item)=>{
@@ -4158,6 +4750,42 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       if(targetBtn)targetBtn.classList.add('active');
       const targetSection=document.getElementById(targetId);
       if(targetSection)targetSection.classList.add('active');
+      maybeShowSalaryAdjustmentToast(targetId);
+    }
+
+    const shownSalaryAdjustmentToasts=new Set();
+    function maybeShowSalaryAdjustmentToast(sectionId){
+      if(!sectionId || !sectionId.startsWith('sec-')) return;
+      const monthId=sectionId.slice(4);
+      if(!months.some((m)=>m.id===monthId)) return;
+      if(shownSalaryAdjustmentToasts.has(monthId)) return;
+      const index=monthIndexById(monthId);
+      if(index<=0) return;
+      const month=months[index];
+      const prev=months[index-1];
+      const lines=[];
+      ['salary_th','salary_sp'].forEach((key)=>{
+        const personLabel=key==='salary_th'?'ธนพงษ์':'สุพิชา';
+        const current=(month.income||[]).find((item)=>getSalaryKey(item)===key);
+        const previous=(prev.income||[]).find((item)=>getSalaryKey(item)===key);
+        const nowVal=Number(current?.v||0);
+        const prevVal=Number(previous?.v||0);
+        if(nowVal===prevVal) return;
+        if(current?.salaryAdjustType==='jobchange'){
+          lines.push(`${personLabel}: ย้ายงาน (ออกเดิม ${current.salaryAdjustOldEndDay}, เริ่มใหม่ ${current.salaryAdjustStartDay}) เรทใหม่ ${fmt(current.salaryAdjustNewSalary)} ฿`);
+        }else if(current?.salaryAdjustType==='raise_amount'){
+          lines.push(`${personLabel}: เพิ่มเงินเดือน ${fmt(current.salaryAdjustDeltaBaht)} ฿ (${fmt(prevVal)} → ${fmt(nowVal)} ฿)`);
+        }else if(current?.salaryAdjustType==='raise_percent'){
+          lines.push(`${personLabel}: เพิ่มเงินเดือน ${Number(current.salaryAdjustDeltaPct||0).toFixed(2)}% (${fmt(prevVal)} → ${fmt(nowVal)} ฿)`);
+        }else if(current?.salaryProrated){
+          lines.push(`${personLabel}: ปรับกลางเดือนวันที่ ${current.salaryAdjustStartDay} (ยอดเดือนนี้ ${fmt(nowVal)} ฿)`);
+        }else{
+          lines.push(`${personLabel}: ${fmt(prevVal)} → ${fmt(nowVal)} ฿`);
+        }
+      });
+      if(!lines.length) return;
+      shownSalaryAdjustmentToasts.add(monthId);
+      showToast(lines.join(' | '), 'info', 5200, `เดือน ${month.label} ${month.year} มีการปรับเงินเดือน`);
     }
 
     function renderYearSummary(){
@@ -4219,7 +4847,18 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
             govBond:0,homeLoan:0,ksp:0,esg:0,donation:0,politicalDonation:0
           }
         },
-        salary:{thBase:28000,spBase:22400,thRaisePct:6,spRaisePct:6,thRaiseStartMonthId:'jan',spRaiseStartMonthId:'jan',bonus:33600,otherMonthly:1000,thSpecialMonthly:0,spSpecialMonthly:0},
+        salary:{
+          thBase:28000,spBase:22400,
+          thAdjustType:'raise',spAdjustType:'raise',
+          thRaiseMode:'percent',spRaiseMode:'percent',
+          thRaisePct:6,spRaisePct:6,
+          thRaiseAmount:0,spRaiseAmount:0,
+          thRaiseStartMonthId:'jan',spRaiseStartMonthId:'jan',
+          thRaiseStartDay:1,spRaiseStartDay:1,
+          thOldJobEndDay:0,spOldJobEndDay:0,
+          thNewRate:29680,spNewRate:23744,
+          bonus:33600,otherMonthly:1000,thSpecialMonthly:0,spSpecialMonthly:0
+        },
         saving:{adjustments:{}}
       };
     }
@@ -4246,6 +4885,18 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
           }
           if(monthIndexById(next.salary.thRaiseStartMonthId)<0) next.salary.thRaiseStartMonthId='jan';
           if(monthIndexById(next.salary.spRaiseStartMonthId)<0) next.salary.spRaiseStartMonthId='jan';
+          next.salary.thRaiseStartDay=Math.max(1, Math.min(31, Math.floor(numOrDefault(next.salary.thRaiseStartDay,1))));
+          next.salary.spRaiseStartDay=Math.max(1, Math.min(31, Math.floor(numOrDefault(next.salary.spRaiseStartDay,1))));
+          next.salary.thAdjustType=next.salary.thAdjustType==='jobchange'?'jobchange':'raise';
+          next.salary.spAdjustType=next.salary.spAdjustType==='jobchange'?'jobchange':'raise';
+          next.salary.thRaiseMode=next.salary.thRaiseMode==='amount'?'amount':'percent';
+          next.salary.spRaiseMode=next.salary.spRaiseMode==='amount'?'amount':'percent';
+          next.salary.thRaiseAmount=numOrDefault(next.salary.thRaiseAmount,0);
+          next.salary.spRaiseAmount=numOrDefault(next.salary.spRaiseAmount,0);
+          next.salary.thOldJobEndDay=Math.max(0, Math.min(31, Math.floor(numOrDefault(next.salary.thOldJobEndDay,0))));
+          next.salary.spOldJobEndDay=Math.max(0, Math.min(31, Math.floor(numOrDefault(next.salary.spOldJobEndDay,0))));
+          next.salary.thNewRate=Math.max(0, numOrDefault(next.salary.thNewRate,next.salary.thBase*(1+numOrDefault(next.salary.thRaisePct,0)/100)));
+          next.salary.spNewRate=Math.max(0, numOrDefault(next.salary.spNewRate,next.salary.spBase*(1+numOrDefault(next.salary.spRaisePct,0)/100)));
           if(parsed.salary && parsed.salary.specialMonthly!=null){
             if(parsed.salary.thSpecialMonthly==null) next.salary.thSpecialMonthly=numOrDefault(parsed.salary.specialMonthly,0);
             if(parsed.salary.spSpecialMonthly==null) next.salary.spSpecialMonthly=0;
@@ -4575,14 +5226,99 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       return {th:thR.tax,sp:spR.tax,total:thR.tax+spR.tax};
     }
 
+    function getSalaryPlanForPerson(personKey, baseSalary){
+      const s=toolState.salary||{};
+      const isTh=personKey==='salary_th';
+      const adjustType=isTh?(s.thAdjustType||'raise'):(s.spAdjustType||'raise');
+      const raiseMode=isTh?(s.thRaiseMode||'percent'):(s.spRaiseMode||'percent');
+      const raisePct=numOrDefault(isTh?s.thRaisePct:s.spRaisePct,0);
+      const raiseAmount=numOrDefault(isTh?s.thRaiseAmount:s.spRaiseAmount,0);
+      const newRate=numOrDefault(isTh?s.thNewRate:s.spNewRate,0);
+
+      const base=Math.max(0, numOrDefault(baseSalary,0));
+      let newSalary=base;
+      let deltaBaht=0;
+      let deltaPct=0;
+
+      if(adjustType==='jobchange'){
+        newSalary=Math.max(0,newRate);
+        deltaBaht=newSalary-base;
+      }else if(raiseMode==='amount'){
+        deltaBaht=raiseAmount;
+        newSalary=Math.max(0,base+deltaBaht);
+      }else{
+        deltaBaht=base*(raisePct/100);
+        newSalary=Math.max(0,base+deltaBaht);
+      }
+
+      deltaPct=base>0?(deltaBaht/base)*100:0;
+      return {adjustType,raiseMode,raisePct,raiseAmount,newRate,newSalary,deltaBaht,deltaPct};
+    }
+
     function calcSalaryTool(){
       const s=toolState.salary;
-      const thNew=s.thBase*(1+s.thRaisePct/100);
-      const spNew=s.spBase*(1+s.spRaisePct/100);
+      const thPlan=getSalaryPlanForPerson('salary_th',s.thBase);
+      const spPlan=getSalaryPlanForPerson('salary_sp',s.spBase);
+      const thNew=thPlan.newSalary;
+      const spNew=spPlan.newSalary;
       const thExtra=numOrDefault(s.thSpecialMonthly,0);
       const spExtra=numOrDefault(s.spSpecialMonthly,0);
       const monthlyExtra=numOrDefault(s.otherMonthly,0)+thExtra+spExtra;
-      return {thNew,spNew,monthlyExtra,monthly:thNew+spNew+monthlyExtra,annual:(thNew+spNew+monthlyExtra)*12+s.bonus};
+      return {
+        thNew,
+        spNew,
+        thDeltaBaht:thPlan.deltaBaht,
+        spDeltaBaht:spPlan.deltaBaht,
+        thDeltaPct:thPlan.deltaPct,
+        spDeltaPct:spPlan.deltaPct,
+        monthlyExtra,
+        monthly:thNew+spNew+monthlyExtra,
+        annual:(thNew+spNew+monthlyExtra)*12+s.bonus
+      };
+    }
+
+    function calcJobChangeTransition(oldSalary,newSalary,oldEndDay,newStartDay,daysInMonth){
+      const safeDays=Math.max(28, Number(daysInMonth)||30);
+      const safeOldEnd=Math.max(0, Math.min(safeDays, Math.floor(Number(oldEndDay)||0)));
+      const safeNewStart=Math.max(1, Math.min(safeDays+1, Math.floor(Number(newStartDay)||1)));
+      let oldDays=safeOldEnd;
+      let newDays=safeNewStart<=safeDays ? (safeDays-safeNewStart+1) : 0;
+      if(safeNewStart<=oldDays){
+        oldDays=Math.max(0, safeNewStart-1);
+      }
+      const gapDays=Math.max(0, safeDays-oldDays-newDays);
+      const value=((Number(oldSalary)||0)*oldDays + (Number(newSalary)||0)*newDays)/safeDays;
+      return {
+        value:Math.round(value),
+        oldDays,
+        newDays,
+        gapDays,
+        safeDays,
+        safeOldEnd,
+        safeNewStart
+      };
+    }
+
+    function getDaysInBudgetMonth(month){
+      if(!month) return 30;
+      const yearAd=(Number(month.year)||2569)-543;
+      const monthNo=CAL_MONTH_NO_BY_ID[month.id]||1;
+      return new Date(yearAd, monthNo, 0).getDate();
+    }
+
+    function calcProratedSalary(oldSalary,newSalary,startDay,daysInMonth){
+      const safeDays=Math.max(28, Number(daysInMonth)||30);
+      const safeStart=Math.min(safeDays, Math.max(1, Math.floor(Number(startDay)||1)));
+      const oldDays=Math.max(0, safeStart-1);
+      const newDays=Math.max(0, safeDays-oldDays);
+      const blended=((Number(oldSalary)||0)*oldDays + (Number(newSalary)||0)*newDays) / safeDays;
+      return {
+        value:Math.round(blended),
+        oldDays,
+        newDays,
+        safeDays,
+        safeStart
+      };
     }
 
     function getSalaryMonthOptions(selectedId=''){
@@ -4599,17 +5335,65 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       if(!startMonthId) return fallback;
       const startIndex=monthIndexById(startMonthId);
       if(startIndex<0) return fallback;
-      // Normally use salary from previous month.
       for(let i=startIndex-1;i>=0;i--){
-        const item=(months[i]?.income||[]).find((entry)=>getSalaryKey(entry.n)===personKey);
+        const item=(months[i]?.income||[]).find((entry)=>getSalaryKey(entry)===personKey);
         if(item && Number(item.v)>0) return Number(item.v);
       }
-      // If start month is the first tracked month, use first known salary from start onward.
       for(let i=startIndex;i<months.length;i++){
-        const item=(months[i]?.income||[]).find((entry)=>getSalaryKey(entry.n)===personKey);
+        const item=(months[i]?.income||[]).find((entry)=>getSalaryKey(entry)===personKey);
         if(item && Number(item.v)>0) return Number(item.v);
       }
       return fallback;
+    }
+
+    function getSalaryTransitionPreview(startMonthId,startDay,newSalary,baseSalary,adjustType='raise',oldEndDay=0){
+      if(!startMonthId) return null;
+      const startIndex=monthIndexById(startMonthId);
+      if(startIndex<0) return null;
+      const month=months[startIndex];
+      const effectiveMonth=months[startIndex+1]||null;
+      const daysInMonth=getDaysInBudgetMonth(month);
+      const oldSalaryValue=numOrDefault(baseSalary,0);
+      const newSalaryValue=numOrDefault(newSalary,0);
+      if(adjustType==='jobchange'){
+        const job=calcJobChangeTransition(oldSalaryValue,newSalaryValue,oldEndDay,startDay,daysInMonth);
+        return {
+          month,
+          effectiveMonth,
+          type:'jobchange',
+          startDay:job.safeNewStart,
+          oldEndDay:job.safeOldEnd,
+          oldDays:job.oldDays,
+          newDays:job.newDays,
+          gapDays:job.gapDays,
+          value:job.value,
+          oldSalary:oldSalaryValue,
+          newSalary:newSalaryValue
+        };
+      }
+      const safeStart=Math.min(daysInMonth, Math.max(1, Math.floor(Number(startDay)||1)));
+      if(safeStart<=1){
+        return {month,effectiveMonth,type:'raise',startDay:safeStart,oldDays:0,newDays:daysInMonth,value:Math.round(newSalaryValue),oldSalary:oldSalaryValue,newSalary:newSalaryValue,gapDays:0};
+      }
+      const prorated=calcProratedSalary(oldSalaryValue,newSalaryValue,safeStart,daysInMonth);
+      return {month,effectiveMonth,type:'raise',startDay:prorated.safeStart,oldDays:prorated.oldDays,newDays:prorated.newDays,value:prorated.value,oldSalary:oldSalaryValue,newSalary:newSalaryValue,gapDays:0};
+    }
+
+    function renderTransitionHintHtml(transition){
+      if(!transition || !transition.month) return '<span style="color:#9f9b95">ยังไม่กำหนดเดือนเริ่มปรับ</span>';
+      const label=`${transition.month.label} ${transition.month.year}`;
+      const effectiveLabel=transition.effectiveMonth?`${transition.effectiveMonth.label} ${transition.effectiveMonth.year}`:'';
+      if(!transition.effectiveMonth){
+        return `<span style="color:#9f9b95">เลือกเดือนช้าเกินไป ไม่มีเดือนถัดไปให้รับเงินก้อนนี้</span>`;
+      }
+      if(transition.type==='jobchange'){
+        const gapText=transition.gapDays>0?`(ว่างงาน ${transition.gapDays} วัน)`:'';
+        return `<span>ปรับในเดือน ${label}: งานเดิมถึงวันที่ ${transition.oldEndDay}, งานใหม่เริ่ม ${transition.startDay} | คิดเงินเดือนงวดนี้ = ${fmt(transition.oldSalary)} × ${transition.oldDays} วัน + ${fmt(transition.newSalary)} × ${transition.newDays} วัน ${gapText} = <strong>${fmt(transition.value)} ฿</strong> และนำไปใช้ในเดือน ${effectiveLabel}</span>`;
+      }
+      if(transition.startDay<=1){
+        return `<span>ปรับในเดือน ${label} และเริ่มใช้ยอดใหม่ทั้งเดือนในเดือน ${effectiveLabel}</span>`;
+      }
+      return `<span>ปรับในเดือน ${label}: ${fmt(transition.oldSalary)} × ${transition.oldDays} วัน + ${fmt(transition.newSalary)} × ${transition.newDays} วัน = <strong>${fmt(transition.value)} ฿</strong> และนำไปใช้ในเดือน ${effectiveLabel}</span>`;
     }
 
     function renderSalaryToolSection(){
@@ -4618,32 +5402,134 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const spBase=getBaseSalaryForStart('salary_sp',s.spRaiseStartMonthId,s.spBase||22400);
       s.thBase=thBase;
       s.spBase=spBase;
+      s.thRaiseStartDay=Math.max(1, Math.min(31, Math.floor(numOrDefault(s.thRaiseStartDay,1))));
+      s.spRaiseStartDay=Math.max(1, Math.min(31, Math.floor(numOrDefault(s.spRaiseStartDay,1))));
+      s.thOldJobEndDay=Math.max(0, Math.min(31, Math.floor(numOrDefault(s.thOldJobEndDay,0))));
+      s.spOldJobEndDay=Math.max(0, Math.min(31, Math.floor(numOrDefault(s.spOldJobEndDay,0))));
+      s.thAdjustType=s.thAdjustType==='jobchange'?'jobchange':'raise';
+      s.spAdjustType=s.spAdjustType==='jobchange'?'jobchange':'raise';
+      s.thRaiseMode=s.thRaiseMode==='amount'?'amount':'percent';
+      s.spRaiseMode=s.spRaiseMode==='amount'?'amount':'percent';
       const r=calcSalaryTool();
       const thStartLabel=s.thRaiseStartMonthId?getMonthLabelById(s.thRaiseStartMonthId):'ยังไม่ปรับ';
       const spStartLabel=s.spRaiseStartMonthId?getMonthLabelById(s.spRaiseStartMonthId):'ยังไม่ปรับ';
-      return `<div class="tool-page"><div class="tool-head"><div class="tool-title">หน้าคำนวณเงินเดือน</div><div class="tool-sub">ตั้งค่าปรับรายได้รายคน และเลือกเดือนเริ่มปรับได้แยกกัน</div></div><div class="tool-card"><div class="tax-name">บล็อคธนพงษ์</div><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">เงินเดือนเดิม ธนพงษ์ (อิงก่อนเดือนเริ่มปรับ)</label><input class="tool-input" id="sal-th-base" type="text" value="${fmt(s.thBase)}" readonly></div><div class="tool-input-wrap"><label class="tool-label">เพิ่มขึ้น ธนพงษ์ (%)</label><input class="tool-input" id="sal-th-raise" type="number" value="${s.thRaisePct}" oninput="updateSalaryToolLive()"></div></div><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">เริ่มปรับเงินเดือน ธนพงษ์ ตั้งแต่เดือน</label><select class="tool-input" id="sal-th-start" oninput="updateSalaryToolLive()">${getSalaryMonthOptions(s.thRaiseStartMonthId)}</select></div><div class="tool-input-wrap"><label class="tool-label">เงินพิเศษ ธนพงษ์/เดือน</label><input class="tool-input" id="sal-th-special" type="number" value="${numOrDefault(s.thSpecialMonthly,0)}" oninput="updateSalaryToolLive()"></div></div><div class="tool-total">สรุปธนพงษ์: เงินเดือนใหม่ <strong id="sal-th-new">${fmt(r.thNew)}</strong> ฿ | เริ่มปรับ: <strong id="sal-th-start-label">${thStartLabel}</strong></div></div><div class="tool-card" style="margin-top:12px"><div class="tax-name">บล็อคสุพิชา</div><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">เงินเดือนเดิม สุพิชา (อิงก่อนเดือนเริ่มปรับ)</label><input class="tool-input" id="sal-sp-base" type="text" value="${fmt(s.spBase)}" readonly></div><div class="tool-input-wrap"><label class="tool-label">เพิ่มขึ้น สุพิชา (%)</label><input class="tool-input" id="sal-sp-raise" type="number" value="${s.spRaisePct}" oninput="updateSalaryToolLive()"></div></div><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">เริ่มปรับเงินเดือน สุพิชา ตั้งแต่เดือน</label><select class="tool-input" id="sal-sp-start" oninput="updateSalaryToolLive()">${getSalaryMonthOptions(s.spRaiseStartMonthId)}</select></div><div class="tool-input-wrap"><label class="tool-label">เงินพิเศษ สุพิชา/เดือน</label><input class="tool-input" id="sal-sp-special" type="number" value="${numOrDefault(s.spSpecialMonthly,0)}" oninput="updateSalaryToolLive()"></div></div><div class="tool-total">สรุปสุพิชา: เงินเดือนใหม่ <strong id="sal-sp-new">${fmt(r.spNew)}</strong> ฿ | เริ่มปรับ: <strong id="sal-sp-start-label">${spStartLabel}</strong></div></div><div class="tool-card" style="margin-top:12px"><div class="tax-name">สรุปรวม</div><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">โบนัสทั้งปี</label><input class="tool-input" id="sal-bonus" type="number" value="${s.bonus}" oninput="updateSalaryToolLive()"></div><div class="tool-input-wrap"><label class="tool-label">รายรับอื่นต่อเดือน</label><input class="tool-input" id="sal-other" type="number" value="${s.otherMonthly}" oninput="updateSalaryToolLive()"></div></div><div class="tool-row"><div class="tool-input-wrap"><label class="tool-label">รวมรายรับพิเศษ/เดือน</label><input class="tool-input" id="sal-extra-monthly" type="text" value="${fmt(r.monthlyExtra)}" readonly></div><div class="tool-input-wrap"></div></div><div class="tool-total">รายรับรวมต่อเดือน: <strong id="sal-monthly">${fmt(r.monthly)}</strong> ฿<br>รายรับรวมต่อปี: <strong id="sal-annual">${fmt(r.annual)}</strong> ฿</div><div class="tool-actions"><button class="btn primary" type="button" onclick="saveSalaryToolState()">Save Salary</button></div></div></div>`;
+      const thTransition=getSalaryTransitionPreview(s.thRaiseStartMonthId,s.thRaiseStartDay,r.thNew,s.thBase,s.thAdjustType,s.thOldJobEndDay);
+      const spTransition=getSalaryTransitionPreview(s.spRaiseStartMonthId,s.spRaiseStartDay,r.spNew,s.spBase,s.spAdjustType,s.spOldJobEndDay);
+      const thRaiseModeDisplay=s.thRaiseMode==='amount' ? 'block' : 'none';
+      const thRaisePctDisplay=s.thRaiseMode==='percent' ? 'block' : 'none';
+      const spRaiseModeDisplay=s.spRaiseMode==='amount' ? 'block' : 'none';
+      const spRaisePctDisplay=s.spRaiseMode==='percent' ? 'block' : 'none';
+      const thRaiseFieldsDisplay=s.thAdjustType==='raise' ? 'grid' : 'none';
+      const thJobFieldsDisplay=s.thAdjustType==='jobchange' ? 'grid' : 'none';
+      const spRaiseFieldsDisplay=s.spAdjustType==='raise' ? 'grid' : 'none';
+      const spJobFieldsDisplay=s.spAdjustType==='jobchange' ? 'grid' : 'none';
+      const thNewInputDisplay=s.thAdjustType==='raise' ? 'block' : 'none';
+      const spNewInputDisplay=s.spAdjustType==='raise' ? 'block' : 'none';
+      return `<div class="tool-page">
+        <div class="tool-head">
+          <div class="tool-title">หน้าคำนวณเงินเดือน</div>
+          <div class="tool-sub">กำหนดได้ 2 แบบ: ปรับเงินเดือน (เลือก % หรือบาท) หรือย้ายงาน (วันลาออก/วันเริ่มงานใหม่/เรทใหม่)</div>
+        </div>
+        <div class="tool-card">
+          <div class="tax-name">บล็อคธนพงษ์</div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">เงินเดือนเดิม ธนพงษ์</label><input class="tool-input" id="sal-th-base" type="text" value="${fmt(s.thBase)}" readonly></div>
+            <div class="tool-input-wrap"><label class="tool-label">โหมด</label><select class="tool-input" id="sal-th-adjust-type" oninput="updateSalaryToolLive()"><option value="raise"${s.thAdjustType==='raise'?' selected':''}>ปรับเงินเดือน</option><option value="jobchange"${s.thAdjustType==='jobchange'?' selected':''}>ย้ายงาน</option></select></div>
+          </div>
+          <div class="tool-row" id="sal-th-raise-row" style="display:${thRaiseFieldsDisplay}">
+            <div class="tool-input-wrap"><label class="tool-label">เพิ่มแบบ</label><select class="tool-input" id="sal-th-raise-mode" oninput="updateSalaryToolLive()"><option value="percent"${s.thRaiseMode==='percent'?' selected':''}>เพิ่มเป็น %</option><option value="amount"${s.thRaiseMode==='amount'?' selected':''}>เพิ่มเป็นบาท</option></select></div>
+            <div class="tool-input-wrap" id="sal-th-raise-pct-wrap" style="display:${thRaisePctDisplay}"><label class="tool-label">เพิ่มขึ้น ธนพงษ์ (%)</label><input class="tool-input" id="sal-th-raise" type="number" value="${s.thRaisePct}" oninput="updateSalaryToolLive('th-pct')"></div>
+            <div class="tool-input-wrap" id="sal-th-raise-amt-wrap" style="display:${thRaiseModeDisplay}"><label class="tool-label">เพิ่มขึ้น (บาท)</label><input class="tool-input" id="sal-th-raise-amount" type="number" value="${numOrDefault(s.thRaiseAmount,0)}" oninput="updateSalaryToolLive('th-amount')"></div>
+          </div>
+          <div class="tool-row" id="sal-th-job-row-1" style="display:${thJobFieldsDisplay}">
+            <div class="tool-input-wrap"><label class="tool-label">วันลาออกงานเดิม</label><input class="tool-input" id="sal-th-old-end-day" type="number" min="0" max="31" step="1" value="${s.thOldJobEndDay}" oninput="updateSalaryToolLive('th-job')"></div>
+            <div class="tool-input-wrap"><label class="tool-label">วันเริ่มงานใหม่</label><input class="tool-input" id="sal-th-start-day" type="number" min="1" max="31" step="1" value="${s.thRaiseStartDay}" oninput="updateSalaryToolLive('th-job')"></div>
+          </div>
+          <div class="tool-row" id="sal-th-job-row-2" style="display:${thJobFieldsDisplay}">
+            <div class="tool-input-wrap"><label class="tool-label">เรทเงินเดือนใหม่</label><input class="tool-input" id="sal-th-new-rate" type="number" value="${Math.round(numOrDefault(s.thNewRate, r.thNew))}" oninput="updateSalaryToolLive('th-job')"></div>
+            <div class="tool-input-wrap"></div>
+          </div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">เดือนที่ปรับ (ได้เงินใช้เดือนถัดไป)</label><select class="tool-input" id="sal-th-start" oninput="updateSalaryToolLive()">${getSalaryMonthOptions(s.thRaiseStartMonthId)}</select></div>
+            <div class="tool-input-wrap" id="sal-th-new-input-wrap" style="display:${thNewInputDisplay}"><label class="tool-label">เงินเดือนใหม่ ธนพงษ์</label><input class="tool-input" id="sal-th-new-input" type="number" value="${Math.round(r.thNew)}" oninput="updateSalaryToolLive('th-new')"></div>
+          </div>
+          <div class="tool-total">สรุปธนพงษ์: เงินเดือนใหม่ <strong id="sal-th-new">${fmt(r.thNew)}</strong> ฿ | เพิ่ม ${fmt(r.thDeltaBaht)} ฿ (${r.thDeltaPct.toFixed(2)}%) | เริ่มตั้งแต่ <strong id="sal-th-start-label">${thStartLabel}</strong><br><span id="sal-th-transition" style="font-size:12px;color:#0f766e">${renderTransitionHintHtml(thTransition)}</span></div>
+        </div>
+        <div class="tool-card" style="margin-top:12px">
+          <div class="tax-name">บล็อคสุพิชา</div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">เงินเดือนเดิม สุพิชา</label><input class="tool-input" id="sal-sp-base" type="text" value="${fmt(s.spBase)}" readonly></div>
+            <div class="tool-input-wrap"><label class="tool-label">โหมด</label><select class="tool-input" id="sal-sp-adjust-type" oninput="updateSalaryToolLive()"><option value="raise"${s.spAdjustType==='raise'?' selected':''}>ปรับเงินเดือน</option><option value="jobchange"${s.spAdjustType==='jobchange'?' selected':''}>ย้ายงาน</option></select></div>
+          </div>
+          <div class="tool-row" id="sal-sp-raise-row" style="display:${spRaiseFieldsDisplay}">
+            <div class="tool-input-wrap"><label class="tool-label">เพิ่มแบบ</label><select class="tool-input" id="sal-sp-raise-mode" oninput="updateSalaryToolLive()"><option value="percent"${s.spRaiseMode==='percent'?' selected':''}>เพิ่มเป็น %</option><option value="amount"${s.spRaiseMode==='amount'?' selected':''}>เพิ่มเป็นบาท</option></select></div>
+            <div class="tool-input-wrap" id="sal-sp-raise-pct-wrap" style="display:${spRaisePctDisplay}"><label class="tool-label">เพิ่มขึ้น สุพิชา (%)</label><input class="tool-input" id="sal-sp-raise" type="number" value="${s.spRaisePct}" oninput="updateSalaryToolLive('sp-pct')"></div>
+            <div class="tool-input-wrap" id="sal-sp-raise-amt-wrap" style="display:${spRaiseModeDisplay}"><label class="tool-label">เพิ่มขึ้น (บาท)</label><input class="tool-input" id="sal-sp-raise-amount" type="number" value="${numOrDefault(s.spRaiseAmount,0)}" oninput="updateSalaryToolLive('sp-amount')"></div>
+          </div>
+          <div class="tool-row" id="sal-sp-job-row-1" style="display:${spJobFieldsDisplay}">
+            <div class="tool-input-wrap"><label class="tool-label">วันลาออกงานเดิม</label><input class="tool-input" id="sal-sp-old-end-day" type="number" min="0" max="31" step="1" value="${s.spOldJobEndDay}" oninput="updateSalaryToolLive('sp-job')"></div>
+            <div class="tool-input-wrap"><label class="tool-label">วันเริ่มงานใหม่</label><input class="tool-input" id="sal-sp-start-day" type="number" min="1" max="31" step="1" value="${s.spRaiseStartDay}" oninput="updateSalaryToolLive('sp-job')"></div>
+          </div>
+          <div class="tool-row" id="sal-sp-job-row-2" style="display:${spJobFieldsDisplay}">
+            <div class="tool-input-wrap"><label class="tool-label">เรทเงินเดือนใหม่</label><input class="tool-input" id="sal-sp-new-rate" type="number" value="${Math.round(numOrDefault(s.spNewRate, r.spNew))}" oninput="updateSalaryToolLive('sp-job')"></div>
+            <div class="tool-input-wrap"></div>
+          </div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">เดือนที่ปรับ (ได้เงินใช้เดือนถัดไป)</label><select class="tool-input" id="sal-sp-start" oninput="updateSalaryToolLive()">${getSalaryMonthOptions(s.spRaiseStartMonthId)}</select></div>
+            <div class="tool-input-wrap" id="sal-sp-new-input-wrap" style="display:${spNewInputDisplay}"><label class="tool-label">เงินเดือนใหม่ สุพิชา</label><input class="tool-input" id="sal-sp-new-input" type="number" value="${Math.round(r.spNew)}" oninput="updateSalaryToolLive('sp-new')"></div>
+          </div>
+          <div class="tool-total">สรุปสุพิชา: เงินเดือนใหม่ <strong id="sal-sp-new">${fmt(r.spNew)}</strong> ฿ | เพิ่ม ${fmt(r.spDeltaBaht)} ฿ (${r.spDeltaPct.toFixed(2)}%) | เริ่มตั้งแต่ <strong id="sal-sp-start-label">${spStartLabel}</strong><br><span id="sal-sp-transition" style="font-size:12px;color:#0f766e">${renderTransitionHintHtml(spTransition)}</span></div>
+        </div>
+        <div class="tool-card" style="margin-top:12px">
+          <div class="tax-name">สรุปรวม</div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">โบนัสทั้งปี</label><input class="tool-input" id="sal-bonus" type="number" value="${s.bonus}" oninput="updateSalaryToolLive()"></div>
+            <div class="tool-input-wrap"><label class="tool-label">รายรับอื่นต่อเดือน</label><input class="tool-input" id="sal-other" type="number" value="${s.otherMonthly}" oninput="updateSalaryToolLive()"></div>
+          </div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">เงินพิเศษ ธนพงษ์/เดือน</label><input class="tool-input" id="sal-th-special" type="number" value="${numOrDefault(s.thSpecialMonthly,0)}" oninput="updateSalaryToolLive()"></div>
+            <div class="tool-input-wrap"><label class="tool-label">เงินพิเศษ สุพิชา/เดือน</label><input class="tool-input" id="sal-sp-special" type="number" value="${numOrDefault(s.spSpecialMonthly,0)}" oninput="updateSalaryToolLive()"></div>
+          </div>
+          <div class="tool-row">
+            <div class="tool-input-wrap"><label class="tool-label">รวมรายรับพิเศษ/เดือน</label><input class="tool-input" id="sal-extra-monthly" type="text" value="${fmt(r.monthlyExtra)}" readonly></div>
+            <div class="tool-input-wrap"></div>
+          </div>
+          <div class="tool-total">รายรับรวมต่อเดือน: <strong id="sal-monthly">${fmt(r.monthly)}</strong> ฿<br>รายรับรวมต่อปี: <strong id="sal-annual">${fmt(r.annual)}</strong> ฿</div>
+          <div class="tool-actions"><button class="btn primary" type="button" onclick="saveSalaryToolState()">Save Salary</button></div>
+        </div>
+      </div>`;
     }
 
-    function updateSalaryToolLive(){
-      const thStartId=document.getElementById('sal-th-start')?.value||'';
-      const spStartId=document.getElementById('sal-sp-start')?.value||'';
-      const thBase=getBaseSalaryForStart('salary_th',thStartId,toolState.salary?.thBase||28000);
-      const spBase=getBaseSalaryForStart('salary_sp',spStartId,toolState.salary?.spBase||22400);
-      toolState.salary={
-        thBase,
-        spBase,
-        thRaisePct:numOrDefault(document.getElementById('sal-th-raise')?.value,0),
-        spRaisePct:numOrDefault(document.getElementById('sal-sp-raise')?.value,0),
-        thRaiseStartMonthId:thStartId,
-        spRaiseStartMonthId:spStartId,
-        bonus:numOrDefault(document.getElementById('sal-bonus')?.value,0),
-        otherMonthly:numOrDefault(document.getElementById('sal-other')?.value,0),
-        thSpecialMonthly:numOrDefault(document.getElementById('sal-th-special')?.value,0),
-        spSpecialMonthly:numOrDefault(document.getElementById('sal-sp-special')?.value,0)
-      };
-      const r=calcSalaryTool();
+    function refreshSalaryToolNumberUI(r, source){
       const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.textContent=fmt(val); };
-      set('sal-th-new',r.thNew); set('sal-sp-new',r.spNew); set('sal-monthly',r.monthly); set('sal-annual',r.annual);
+      set('sal-th-new',r.thNew);
+      set('sal-sp-new',r.spNew);
+      set('sal-monthly',r.monthly);
+      set('sal-annual',r.annual);
+
+      const s=toolState.salary;
+      const thRaiseEl=document.getElementById('sal-th-raise');
+      if(thRaiseEl && source!=='th-pct') thRaiseEl.value=Number(numOrDefault(s.thRaisePct,0).toFixed(4));
+      const spRaiseEl=document.getElementById('sal-sp-raise');
+      if(spRaiseEl && source!=='sp-pct') spRaiseEl.value=Number(numOrDefault(s.spRaisePct,0).toFixed(4));
+      const thRaiseAmountEl=document.getElementById('sal-th-raise-amount');
+      if(thRaiseAmountEl && source!=='th-amount') thRaiseAmountEl.value=Math.round(numOrDefault(s.thRaiseAmount,0));
+      const spRaiseAmountEl=document.getElementById('sal-sp-raise-amount');
+      if(spRaiseAmountEl && source!=='sp-amount') spRaiseAmountEl.value=Math.round(numOrDefault(s.spRaiseAmount,0));
+      const thNewEl=document.getElementById('sal-th-new-input');
+      if(thNewEl && source!=='th-new') thNewEl.value=Math.round(r.thNew);
+      const spNewEl=document.getElementById('sal-sp-new-input');
+      if(spNewEl && source!=='sp-new') spNewEl.value=Math.round(r.spNew);
+      const thNewRateEl=document.getElementById('sal-th-new-rate');
+      if(thNewRateEl && source!=='th-job') thNewRateEl.value=Math.round(numOrDefault(s.thNewRate,r.thNew));
+      const spNewRateEl=document.getElementById('sal-sp-new-rate');
+      if(spNewRateEl && source!=='sp-job') spNewRateEl.value=Math.round(numOrDefault(s.spNewRate,r.spNew));
+
+      const extraEl=document.getElementById('sal-extra-monthly');
+      if(extraEl) extraEl.value=fmt(r.monthlyExtra);
+    }
+
+    function refreshSalaryToolInfoUI(r){
       const thBaseEl=document.getElementById('sal-th-base');
       if(thBaseEl) thBaseEl.value=fmt(toolState.salary.thBase);
       const spBaseEl=document.getElementById('sal-sp-base');
@@ -4652,40 +5538,250 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       if(thStartLabelEl) thStartLabelEl.textContent=toolState.salary.thRaiseStartMonthId?getMonthLabelById(toolState.salary.thRaiseStartMonthId):'ยังไม่ปรับ';
       const spStartLabelEl=document.getElementById('sal-sp-start-label');
       if(spStartLabelEl) spStartLabelEl.textContent=toolState.salary.spRaiseStartMonthId?getMonthLabelById(toolState.salary.spRaiseStartMonthId):'ยังไม่ปรับ';
-      const extraEl=document.getElementById('sal-extra-monthly');
-      if(extraEl) extraEl.value=fmt(r.monthlyExtra);
+      const thRaisePctWrap=document.getElementById('sal-th-raise-pct-wrap');
+      if(thRaisePctWrap) thRaisePctWrap.style.display=toolState.salary.thRaiseMode==='percent'?'block':'none';
+      const thRaiseAmtWrap=document.getElementById('sal-th-raise-amt-wrap');
+      if(thRaiseAmtWrap) thRaiseAmtWrap.style.display=toolState.salary.thRaiseMode==='amount'?'block':'none';
+      const spRaisePctWrap=document.getElementById('sal-sp-raise-pct-wrap');
+      if(spRaisePctWrap) spRaisePctWrap.style.display=toolState.salary.spRaiseMode==='percent'?'block':'none';
+      const spRaiseAmtWrap=document.getElementById('sal-sp-raise-amt-wrap');
+      if(spRaiseAmtWrap) spRaiseAmtWrap.style.display=toolState.salary.spRaiseMode==='amount'?'block':'none';
+      const thRaiseRow=document.getElementById('sal-th-raise-row');
+      if(thRaiseRow) thRaiseRow.style.display=toolState.salary.thAdjustType==='raise'?'grid':'none';
+      const thJobRow1=document.getElementById('sal-th-job-row-1');
+      if(thJobRow1) thJobRow1.style.display=toolState.salary.thAdjustType==='jobchange'?'grid':'none';
+      const thJobRow2=document.getElementById('sal-th-job-row-2');
+      if(thJobRow2) thJobRow2.style.display=toolState.salary.thAdjustType==='jobchange'?'grid':'none';
+      const spRaiseRow=document.getElementById('sal-sp-raise-row');
+      if(spRaiseRow) spRaiseRow.style.display=toolState.salary.spAdjustType==='raise'?'grid':'none';
+      const spJobRow1=document.getElementById('sal-sp-job-row-1');
+      if(spJobRow1) spJobRow1.style.display=toolState.salary.spAdjustType==='jobchange'?'grid':'none';
+      const spJobRow2=document.getElementById('sal-sp-job-row-2');
+      if(spJobRow2) spJobRow2.style.display=toolState.salary.spAdjustType==='jobchange'?'grid':'none';
+      const thNewInputWrap=document.getElementById('sal-th-new-input-wrap');
+      if(thNewInputWrap) thNewInputWrap.style.display=toolState.salary.thAdjustType==='raise'?'block':'none';
+      const spNewInputWrap=document.getElementById('sal-sp-new-input-wrap');
+      if(spNewInputWrap) spNewInputWrap.style.display=toolState.salary.spAdjustType==='raise'?'block':'none';
+
+      const thTransitionEl=document.getElementById('sal-th-transition');
+      if(thTransitionEl){
+        const thTransition=getSalaryTransitionPreview(toolState.salary.thRaiseStartMonthId,toolState.salary.thRaiseStartDay,r.thNew,toolState.salary.thBase,toolState.salary.thAdjustType,toolState.salary.thOldJobEndDay);
+        thTransitionEl.innerHTML=renderTransitionHintHtml(thTransition);
+      }
+      const spTransitionEl=document.getElementById('sal-sp-transition');
+      if(spTransitionEl){
+        const spTransition=getSalaryTransitionPreview(toolState.salary.spRaiseStartMonthId,toolState.salary.spRaiseStartDay,r.spNew,toolState.salary.spBase,toolState.salary.spAdjustType,toolState.salary.spOldJobEndDay);
+        spTransitionEl.innerHTML=renderTransitionHintHtml(spTransition);
+      }
     }
 
-    function applySalaryUpdateByPerson(personKey,startMonthId,newSalary){
-      const startIndex=monthIndexById(startMonthId);
-      if(startIndex<0) return;
-      const salaryName=personKey==='salary_th'?'เงินเดือน ธนพงษ์':'เงินเดือน สุพิชา';
+    function updateSalaryToolLive(source='all'){
+      const thStartId=document.getElementById('sal-th-start')?.value||'';
+      const spStartId=document.getElementById('sal-sp-start')?.value||'';
+      const thBase=getBaseSalaryForStart('salary_th',thStartId,toolState.salary?.thBase||28000);
+      const spBase=getBaseSalaryForStart('salary_sp',spStartId,toolState.salary?.spBase||22400);
+      const thStartDay=Math.max(1, Math.min(31, Math.floor(numOrDefault(document.getElementById('sal-th-start-day')?.value,1))));
+      const spStartDay=Math.max(1, Math.min(31, Math.floor(numOrDefault(document.getElementById('sal-sp-start-day')?.value,1))));
+
+      const thAdjustType=document.getElementById('sal-th-adjust-type')?.value==='jobchange'?'jobchange':'raise';
+      const spAdjustType=document.getElementById('sal-sp-adjust-type')?.value==='jobchange'?'jobchange':'raise';
+      const thRaiseMode=document.getElementById('sal-th-raise-mode')?.value==='amount'?'amount':'percent';
+      const spRaiseMode=document.getElementById('sal-sp-raise-mode')?.value==='amount'?'amount':'percent';
+
+      let thPct=numOrDefault(document.getElementById('sal-th-raise')?.value,0);
+      let spPct=numOrDefault(document.getElementById('sal-sp-raise')?.value,0);
+      let thAmount=numOrDefault(document.getElementById('sal-th-raise-amount')?.value,0);
+      let spAmount=numOrDefault(document.getElementById('sal-sp-raise-amount')?.value,0);
+      let thNewRate=Math.max(0, numOrDefault(document.getElementById('sal-th-new-rate')?.value,thBase));
+      let spNewRate=Math.max(0, numOrDefault(document.getElementById('sal-sp-new-rate')?.value,spBase));
+      const thOldEnd=Math.max(0, Math.min(31, Math.floor(numOrDefault(document.getElementById('sal-th-old-end-day')?.value,0))));
+      const spOldEnd=Math.max(0, Math.min(31, Math.floor(numOrDefault(document.getElementById('sal-sp-old-end-day')?.value,0))));
+
+      if(source==='th-new'){
+        const thNewInput=Math.max(0, numOrDefault(document.getElementById('sal-th-new-input')?.value,thBase));
+        thAmount=thNewInput-thBase;
+        thPct=thBase>0?(thAmount/thBase)*100:0;
+        if(thAdjustType==='jobchange') thNewRate=thNewInput;
+      }
+      if(source==='sp-new'){
+        const spNewInput=Math.max(0, numOrDefault(document.getElementById('sal-sp-new-input')?.value,spBase));
+        spAmount=spNewInput-spBase;
+        spPct=spBase>0?(spAmount/spBase)*100:0;
+        if(spAdjustType==='jobchange') spNewRate=spNewInput;
+      }
+      if(source==='th-amount'){
+        thPct=thBase>0?(thAmount/thBase)*100:0;
+      }
+      if(source==='sp-amount'){
+        spPct=spBase>0?(spAmount/spBase)*100:0;
+      }
+
+      toolState.salary={
+        thBase,
+        spBase,
+        thAdjustType,
+        spAdjustType,
+        thRaiseMode,
+        spRaiseMode,
+        thRaisePct:thPct,
+        spRaisePct:spPct,
+        thRaiseAmount:thAmount,
+        spRaiseAmount:spAmount,
+        thRaiseStartMonthId:thStartId,
+        spRaiseStartMonthId:spStartId,
+        thRaiseStartDay:thStartDay,
+        spRaiseStartDay:spStartDay,
+        thOldJobEndDay:thOldEnd,
+        spOldJobEndDay:spOldEnd,
+        thNewRate:thNewRate,
+        spNewRate:spNewRate,
+        bonus:numOrDefault(document.getElementById('sal-bonus')?.value,0),
+        otherMonthly:numOrDefault(document.getElementById('sal-other')?.value,0),
+        thSpecialMonthly:numOrDefault(document.getElementById('sal-th-special')?.value,0),
+        spSpecialMonthly:numOrDefault(document.getElementById('sal-sp-special')?.value,0)
+      };
+
+      const r=calcSalaryTool();
+      refreshSalaryToolNumberUI(r, source);
+      refreshSalaryToolInfoUI(r);
+    }
+
+    function applySalaryUpdateByPerson(personKey,startMonthId,plan,baseSalary){
+      const sourceIndex=monthIndexById(startMonthId);
+      if(sourceIndex<0) return;
+      const startIndex=sourceIndex+1;
+      if(startIndex>=months.length) return;
+      const sourceMonth=months[sourceIndex];
+      const salaryName=toSalaryDisplayName(personKey);
       let recurringRid='';
       months.forEach((month)=>{
-        const existing=(month.income||[]).find((item)=>getSalaryKey(item.n)===personKey && item.rid);
+        const existing=(month.income||[]).find((item)=>getSalaryKey(item)===personKey && item.rid);
         if(existing && !recurringRid) recurringRid=existing.rid;
       });
       if(!recurringRid) recurringRid=genRid();
       for(let i=startIndex;i<months.length;i++){
         const month=months[i];
+        const isStartMonth=i===startIndex;
+        let salaryValue=Math.round(plan.newSalary);
+        let prorationMeta={};
+        if(isStartMonth){
+          const oldValue=numOrDefault(baseSalary,0);
+          const calcMonth=sourceMonth||month;
+          if(plan.adjustType==='jobchange'){
+            const daysInMonth=getDaysInBudgetMonth(calcMonth);
+            const job=calcJobChangeTransition(oldValue,plan.newSalary,plan.oldJobEndDay,plan.startDay,daysInMonth);
+            salaryValue=job.value;
+            prorationMeta={
+              salaryProrated:true,
+              salaryAdjustType:'jobchange',
+              salaryAdjustStartDay:job.safeNewStart,
+              salaryAdjustOldEndDay:job.safeOldEnd,
+              salaryAdjustOldDays:job.oldDays,
+              salaryAdjustNewDays:job.newDays,
+              salaryAdjustGapDays:job.gapDays,
+              salaryAdjustDaysInMonth:job.safeDays,
+              salaryAdjustOldSalary:Math.round(oldValue),
+              salaryAdjustNewSalary:Math.round(plan.newSalary),
+              salaryAdjustDeltaBaht:Math.round(plan.deltaBaht),
+              salaryAdjustDeltaPct:Number(plan.deltaPct.toFixed(4)),
+              salaryAdjustStartMonthId:startMonthId,
+              salaryAdjustEffectiveMonthId:month.id
+            };
+          }else{
+            const daysInMonth=getDaysInBudgetMonth(calcMonth);
+            const safeStart=Math.min(daysInMonth, Math.max(1, Math.floor(Number(plan.startDay)||1)));
+            if(safeStart>1){
+              const prorated=calcProratedSalary(oldValue,plan.newSalary,safeStart,daysInMonth);
+              salaryValue=prorated.value;
+              prorationMeta={
+                salaryProrated:true,
+                salaryAdjustType:plan.raiseMode==='amount'?'raise_amount':'raise_percent',
+                salaryAdjustStartDay:prorated.safeStart,
+                salaryAdjustOldDays:prorated.oldDays,
+                salaryAdjustNewDays:prorated.newDays,
+                salaryAdjustGapDays:0,
+                salaryAdjustDaysInMonth:prorated.safeDays,
+                salaryAdjustOldSalary:Math.round(oldValue),
+                salaryAdjustNewSalary:Math.round(plan.newSalary),
+                salaryAdjustDeltaBaht:Math.round(plan.deltaBaht),
+                salaryAdjustDeltaPct:Number(plan.deltaPct.toFixed(4)),
+                salaryAdjustStartMonthId:startMonthId,
+                salaryAdjustEffectiveMonthId:month.id
+              };
+            }else{
+            prorationMeta={
+              salaryProrated:false,
+              salaryAdjustType:plan.raiseMode==='amount'?'raise_amount':'raise_percent',
+              salaryAdjustStartDay:1,
+              salaryAdjustOldDays:0,
+              salaryAdjustNewDays:daysInMonth,
+              salaryAdjustGapDays:0,
+              salaryAdjustDaysInMonth:daysInMonth,
+              salaryAdjustOldSalary:Math.round(oldValue),
+              salaryAdjustNewSalary:Math.round(plan.newSalary),
+              salaryAdjustDeltaBaht:Math.round(plan.deltaBaht),
+              salaryAdjustDeltaPct:Number(plan.deltaPct.toFixed(4)),
+              salaryAdjustStartMonthId:startMonthId,
+              salaryAdjustEffectiveMonthId:month.id
+            };
+            }
+          }
+        }
         let found=false;
         month.income=month.income.map((item)=>{
-          if(getSalaryKey(item.n)!==personKey) return item;
+          if(getSalaryKey(item)!==personKey) return item;
           found=true;
-          return {...item,n:salaryName,v:Math.round(newSalary),rid:item.rid||recurringRid};
+          const base={...item,salaryKey:personKey,n:salaryName,v:salaryValue,rid:item.rid||recurringRid};
+          if(isStartMonth) return {...base,...prorationMeta};
+          const {salaryProrated,salaryAdjustType,salaryAdjustStartDay,salaryAdjustOldEndDay,salaryAdjustOldDays,salaryAdjustNewDays,salaryAdjustGapDays,salaryAdjustDaysInMonth,salaryAdjustOldSalary,salaryAdjustNewSalary,salaryAdjustDeltaBaht,salaryAdjustDeltaPct,salaryAdjustStartMonthId,salaryAdjustEffectiveMonthId,...cleanMeta}=base;
+          return cleanMeta;
         });
         if(!found){
-          month.income.push({n:salaryName,v:Math.round(newSalary),rid:recurringRid});
+          const base={n:salaryName,v:salaryValue,rid:recurringRid,salaryKey:personKey};
+          month.income.push(isStartMonth?{...base,...prorationMeta}:base);
         }
       }
+    }
+
+    function getSalaryAtMonth(personKey, monthId){
+      const index=monthIndexById(monthId);
+      if(index<0) return 0;
+      const month=months[index];
+      const item=(month?.income||[]).find((entry)=>getSalaryKey(entry)===personKey);
+      return Number(item?.v||0);
     }
 
     function getPrevMonthSalary(personKey,startMonthId){
       const startIndex=monthIndexById(startMonthId);
       if(startIndex<=0) return 0;
       const prevMonth=months[startIndex-1];
-      const item=(prevMonth?.income||[]).find((entry)=>getSalaryKey(entry.n)===personKey);
+      const item=(prevMonth?.income||[]).find((entry)=>getSalaryKey(entry)===personKey);
       return Number(item?.v||0);
+    }
+
+    function getStartMonthExpectedSalary(plan, baseSalary, month, startDay, oldEndDay){
+      const daysInMonth=getDaysInBudgetMonth(month);
+      const oldValue=numOrDefault(baseSalary,0);
+      const newValue=numOrDefault(plan?.newSalary,0);
+      if((plan?.adjustType||'raise')==='jobchange'){
+        return calcJobChangeTransition(oldValue,newValue,oldEndDay,startDay,daysInMonth).value;
+      }
+      const safeStart=Math.min(daysInMonth, Math.max(1, Math.floor(Number(startDay)||1)));
+      if(safeStart<=1) return Math.round(newValue);
+      return calcProratedSalary(oldValue,newValue,safeStart,daysInMonth).value;
+    }
+
+    function enforceStartMonthSalaryValue(personKey,startMonthId,plan,baseSalary,startDay,oldEndDay){
+      const sourceIndex=monthIndexById(startMonthId);
+      if(sourceIndex<0) return;
+      const targetIndex=sourceIndex+1;
+      if(targetIndex>=months.length) return;
+      const sourceMonth=months[sourceIndex];
+      const targetMonth=months[targetIndex];
+      if(!sourceMonth || !targetMonth || !Array.isArray(targetMonth.income)) return;
+      const expected=getStartMonthExpectedSalary(plan,baseSalary,sourceMonth,startDay,oldEndDay);
+      const item=targetMonth.income.find((entry)=>getSalaryKey(entry)===personKey);
+      if(item) item.v=expected;
     }
 
     function applySalaryToolToBudget(){
@@ -4693,16 +5789,24 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
       const beforeByMonth=new Map(months.map((month)=>[month.id,cloneItems(month.income)]));
       const salaryConfig=getSalaryAdjustmentConfig();
       if(salaryConfig.salary_th.startMonthId){
+        const currentSalary=getSalaryAtMonth('salary_th',salaryConfig.salary_th.startMonthId);
         const prevSalary=getPrevMonthSalary('salary_th',salaryConfig.salary_th.startMonthId);
-        const base=prevSalary>0?prevSalary:numOrDefault(s.thBase,28000);
-        const thNew=base*(1+numOrDefault(s.thRaisePct,0)/100);
-        applySalaryUpdateByPerson('salary_th',salaryConfig.salary_th.startMonthId,thNew);
+        let base=numOrDefault(s.thBase,28000);
+        if(prevSalary>0) base=prevSalary;
+        if(currentSalary>0) base=currentSalary;
+        const plan=getSalaryPlanForPerson('salary_th',base);
+        applySalaryUpdateByPerson('salary_th',salaryConfig.salary_th.startMonthId,{...plan,startDay:salaryConfig.salary_th.startDay,oldJobEndDay:salaryConfig.salary_th.oldJobEndDay},base);
+        enforceStartMonthSalaryValue('salary_th',salaryConfig.salary_th.startMonthId,plan,base,salaryConfig.salary_th.startDay,salaryConfig.salary_th.oldJobEndDay);
       }
       if(salaryConfig.salary_sp.startMonthId){
+        const currentSalary=getSalaryAtMonth('salary_sp',salaryConfig.salary_sp.startMonthId);
         const prevSalary=getPrevMonthSalary('salary_sp',salaryConfig.salary_sp.startMonthId);
-        const base=prevSalary>0?prevSalary:numOrDefault(s.spBase,22400);
-        const spNew=base*(1+numOrDefault(s.spRaisePct,0)/100);
-        applySalaryUpdateByPerson('salary_sp',salaryConfig.salary_sp.startMonthId,spNew);
+        let base=numOrDefault(s.spBase,22400);
+        if(prevSalary>0) base=prevSalary;
+        if(currentSalary>0) base=currentSalary;
+        const plan=getSalaryPlanForPerson('salary_sp',base);
+        applySalaryUpdateByPerson('salary_sp',salaryConfig.salary_sp.startMonthId,{...plan,startDay:salaryConfig.salary_sp.startDay,oldJobEndDay:salaryConfig.salary_sp.oldJobEndDay},base);
+        enforceStartMonthSalaryValue('salary_sp',salaryConfig.salary_sp.startMonthId,plan,base,salaryConfig.salary_sp.startDay,salaryConfig.salary_sp.oldJobEndDay);
       }
       let changed=false;
       months.forEach((month)=>{
@@ -5023,6 +6127,7 @@ ${d('บริจาคพรรคการเมือง',r.politicalDonation
     async function initApp(){
       await loadMonthsFromSheet();
       ensureAllMonthRids();
+      ensureIncomeSalaryKeys();
       harmonizeRecurringRids();
       migrateLegacyDebtPlans();
       cleanupClosedDebtItems();
